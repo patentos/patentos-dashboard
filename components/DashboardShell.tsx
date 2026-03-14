@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import LogoutButton from "@/components/LogoutButton";
 import { createClient } from "@/utils/supabase/client";
+const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
 type DashboardTab =
   | "dashboard"
   | "intake"
@@ -269,18 +270,24 @@ export default function DashboardShell({ userEmail, userId }: DashboardShellProp
       ? "New Validation Project"
       : "New Prosecution Project";
 
-  const { error } = await supabase.from("projects").insert({
+  const { data, error } = await supabase
+  .from("projects")
+  .insert({
     user_id: userId,
     title,
     workflow_type: activeWorkflow,
     status: "new",
     input_text: null,
-  });
+  })
+  .select()
+  .single();
 
-  if (error) {
-    alert(error.message);
-    return;
-  }
+if (error) {
+  alert(error.message);
+  return;
+}
+
+setCurrentProjectId(data.id);
 
   if (activeWorkflow === "draft") setActiveTab("intake");
   if (activeWorkflow === "validate") setActiveTab("documents");
@@ -432,6 +439,9 @@ export default function DashboardShell({ userEmail, userId }: DashboardShellProp
                 <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
                   Manage invention flow, drafting momentum, and prosecution readiness from one coordinated workspace.
                 </p>
+                {currentProjectId && (
+  <p className="text-sm text-slate-500">Current project ID: {currentProjectId}</p>
+)}
               </div>
 
               <div className="flex items-center gap-3">
