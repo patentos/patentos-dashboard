@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import LogoutButton from "@/components/LogoutButton";
 import { createClient } from "@/utils/supabase/client";
-const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+import LogoutButton from "@/components/LogoutButton";
+
 type DashboardTab =
   | "dashboard"
   | "intake"
@@ -21,11 +21,16 @@ type DashboardShellProps = {
   userId: string;
 };
 
-export default function DashboardShell({ userEmail, userId }: DashboardShellProps) {
+export default function DashboardShell({
+  userEmail,
+  userId,
+}: DashboardShellProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("dashboard");
   const [activeWorkflow, setActiveWorkflow] = useState<WorkflowType>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("workflow-home");
   const [hoveredTab, setHoveredTab] = useState<DashboardTab | null>(null);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
 
   const tabs: {
     key: DashboardTab;
@@ -261,40 +266,49 @@ export default function DashboardShell({ userEmail, userId }: DashboardShellProp
   }
 
   async function startNewProject() {
-  const supabase = createClient();
+    if (!activeWorkflow) return;
 
-  const title =
-    activeWorkflow === "draft"
-      ? "New Draft Project"
-      : activeWorkflow === "validate"
-      ? "New Validation Project"
-      : "New Prosecution Project";
+    try {
+      setIsCreatingProject(true);
+      const supabase = createClient();
 
-  const { data, error } = await supabase
-  .from("projects")
-  .insert({
-    user_id: userId,
-    title,
-    workflow_type: activeWorkflow,
-    status: "new",
-    input_text: null,
-  })
-  .select()
-  .single();
+      const title =
+        activeWorkflow === "draft"
+          ? "New Draft Project"
+          : activeWorkflow === "validate"
+          ? "New Validation Project"
+          : "New Prosecution Project";
 
-if (error) {
-  alert(error.message);
-  return;
-}
+      const { data, error } = await supabase
+        .from("projects")
+        .insert({
+          user_id: userId,
+          title,
+          workflow_type: activeWorkflow,
+          status: "new",
+          input_text: null,
+        })
+        .select()
+        .single();
 
-setCurrentProjectId(data.id);
+      if (error) {
+        alert(error.message);
+        return;
+      }
 
-  if (activeWorkflow === "draft") setActiveTab("intake");
-  if (activeWorkflow === "validate") setActiveTab("documents");
-  if (activeWorkflow === "prosecute") setActiveTab("prosecution");
+      setCurrentProjectId(data.id);
 
-  setViewMode("workspace");
-}
+      if (activeWorkflow === "draft") setActiveTab("intake");
+      if (activeWorkflow === "validate") setActiveTab("documents");
+      if (activeWorkflow === "prosecute") setActiveTab("prosecution");
+
+      setViewMode("workspace");
+    } catch (err) {
+      alert("Could not create project.");
+    } finally {
+      setIsCreatingProject(false);
+    }
+  }
 
   function getWorkflowLabel() {
     if (activeWorkflow === "draft") return "Draft";
@@ -315,7 +329,8 @@ setCurrentProjectId(data.id);
               What would you like to do?
             </h1>
             <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
-              Choose a PatentOS workflow to begin. Start a new drafting, validation, or prosecution workflow from one coordinated workspace.
+              Choose a PatentOS workflow to begin. Start a new drafting,
+              validation, or prosecution workflow from one coordinated workspace.
             </p>
           </div>
 
@@ -354,7 +369,9 @@ setCurrentProjectId(data.id);
           <p className="text-xl font-semibold text-[#122033]">Signed in as</p>
           <p className="mt-3 text-base text-slate-600">{userEmail}</p>
           <p className="mt-4 text-sm leading-7 text-slate-600">
-            PatentOS is designed to help India close its patent gap by leveraging AI across drafting, validation, and prosecution workflows.
+            PatentOS is designed to help India close its patent gap by
+            leveraging AI across drafting, validation, and prosecution
+            workflows.
           </p>
         </div>
       </div>
@@ -372,7 +389,9 @@ setCurrentProjectId(data.id);
             Continue or start a new project
           </h1>
           <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
-            Choose whether you want to continue your latest {getWorkflowLabel().toLowerCase()} workflow or begin a fresh project inside PatentOS.
+            Choose whether you want to continue your latest{" "}
+            {getWorkflowLabel().toLowerCase()} workflow or begin a fresh project
+            inside PatentOS.
           </p>
         </div>
 
@@ -388,22 +407,25 @@ setCurrentProjectId(data.id);
               Continue last project
             </h2>
             <p className="mt-4 text-base leading-8 text-slate-600">
-              Resume the most recent {getWorkflowLabel().toLowerCase()} workflow and continue from where you left off.
+              Resume the most recent {getWorkflowLabel().toLowerCase()} workflow
+              and continue from where you left off.
             </p>
           </button>
 
           <button
             onClick={startNewProject}
-            className="rounded-[2rem] border border-[rgba(255,138,0,0.16)] bg-[linear-gradient(135deg,#fff6ec_0%,#ffffff_100%)] p-8 text-left shadow-[0_10px_40px_rgba(255,138,0,0.08)] transition hover:-translate-y-1"
+            disabled={isCreatingProject}
+            className="rounded-[2rem] border border-[rgba(255,138,0,0.16)] bg-[linear-gradient(135deg,#fff6ec_0%,#ffffff_100%)] p-8 text-left shadow-[0_10px_40px_rgba(255,138,0,0.08)] transition hover:-translate-y-1 disabled:opacity-60"
           >
             <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] bg-[rgba(255,138,0,0.12)] text-lg font-semibold text-[#ff8a00]">
               N
             </div>
             <h2 className="mt-6 text-3xl font-semibold tracking-[-0.03em] text-[#122033]">
-              Start new project
+              {isCreatingProject ? "Creating..." : "Start new project"}
             </h2>
             <p className="mt-4 text-base leading-8 text-slate-600">
-              Open a fresh {getWorkflowLabel().toLowerCase()} workspace and begin a new PatentOS project.
+              Open a fresh {getWorkflowLabel().toLowerCase()} workspace and
+              begin a new PatentOS project.
             </p>
           </button>
         </div>
@@ -423,520 +445,619 @@ setCurrentProjectId(data.id);
     );
   }
 
-  function renderTabContent() {
-    switch (activeTab) {
-      case "dashboard":
-        return (
-          <div className="space-y-8">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
-                  PatentOS Dashboard
-                </p>
-                <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
-                  Welcome back
-                </h1>
-                <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
-                  Manage invention flow, drafting momentum, and prosecution readiness from one coordinated workspace.
-                </p>
-                
-              </div>
+  function renderDashboardTab() {
+    return (
+      <div className="space-y-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+              PatentOS Dashboard
+            </p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
+              Welcome back
+            </h1>
+            <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
+              Manage invention flow, drafting momentum, and prosecution
+              readiness from one coordinated workspace.
+            </p>
+            {currentProjectId && (
+              <p className="mt-3 text-sm text-slate-500">
+                Current project ID: {currentProjectId}
+              </p>
+            )}
+          </div>
 
-              <div className="flex items-center gap-3">
-                <button className="rounded-full bg-[#1457b8] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b2f6b]">
-                  New Invention Matter
-                </button>
-                <LogoutButton />
+          <div className="flex items-center gap-3">
+            <button className="rounded-full bg-[#1457b8] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b2f6b]">
+              New Invention Matter
+            </button>
+            <LogoutButton />
+          </div>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {stats.map((item) => (
+            <div
+              key={item.label}
+              className="rounded-[1.75rem] border border-[rgba(20,87,184,0.10)] bg-white p-6 shadow-[0_10px_40px_rgba(20,87,184,0.05)]"
+            >
+              <p className="text-sm leading-7 text-slate-500">{item.label}</p>
+              <p className="mt-3 text-3xl font-semibold text-[#122033]">
+                {item.value}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-8 xl:grid-cols-[1.25fr_0.75fr]">
+          <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xl font-semibold text-[#122033]">
+                  Recent invention pipeline
+                </p>
+                <p className="mt-2 text-sm leading-7 text-slate-500">
+                  Snapshot of matters currently moving through the PatentOS
+                  workflow.
+                </p>
               </div>
+              <button className="rounded-full border border-[rgba(20,87,184,0.12)] px-4 py-2 text-sm font-medium text-[#1457b8] transition hover:bg-[rgba(20,87,184,0.05)]">
+                View all
+              </button>
             </div>
 
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-              {stats.map((item) => (
+            <div className="mt-8 space-y-4">
+              {pipeline.map((item) => (
                 <div
-                  key={item.label}
-                  className="rounded-[1.75rem] border border-[rgba(20,87,184,0.10)] bg-white p-6 shadow-[0_10px_40px_rgba(20,87,184,0.05)]"
+                  key={item.title}
+                  className="rounded-[1.5rem] border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] p-5"
                 >
-                  <p className="text-sm leading-7 text-slate-500">{item.label}</p>
-                  <p className="mt-3 text-3xl font-semibold text-[#122033]">{item.value}</p>
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <p className="text-lg font-semibold text-[#122033]">
+                        {item.title}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-500">
+                        Owner: {item.owner}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="rounded-full bg-[rgba(255,138,0,0.12)] px-3 py-1 text-xs font-semibold text-[#ff8a00]">
+                        {item.stage}
+                      </span>
+                      <span className="rounded-full bg-[rgba(20,87,184,0.08)] px-3 py-1 text-xs font-semibold text-[#1457b8]">
+                        {item.status}
+                      </span>
+                      <span className="text-sm text-slate-500">
+                        {item.updated}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
-
-            <div className="grid gap-8 xl:grid-cols-[1.25fr_0.75fr]">
-              <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xl font-semibold text-[#122033]">Recent invention pipeline</p>
-                    <p className="mt-2 text-sm leading-7 text-slate-500">
-                      Snapshot of matters currently moving through the PatentOS workflow.
-                    </p>
-                  </div>
-                  <button className="rounded-full border border-[rgba(20,87,184,0.12)] px-4 py-2 text-sm font-medium text-[#1457b8] transition hover:bg-[rgba(20,87,184,0.05)]">
-                    View all
-                  </button>
-                </div>
-
-                <div className="mt-8 space-y-4">
-                  {pipeline.map((item) => (
-                    <div
-                      key={item.title}
-                      className="rounded-[1.5rem] border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] p-5"
-                    >
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                          <p className="text-lg font-semibold text-[#122033]">{item.title}</p>
-                          <p className="mt-2 text-sm text-slate-500">
-                            Owner: {item.owner}
-                          </p>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-3">
-                          <span className="rounded-full bg-[rgba(255,138,0,0.12)] px-3 py-1 text-xs font-semibold text-[#ff8a00]">
-                            {item.stage}
-                          </span>
-                          <span className="rounded-full bg-[rgba(20,87,184,0.08)] px-3 py-1 text-xs font-semibold text-[#1457b8]">
-                            {item.status}
-                          </span>
-                          <span className="text-sm text-slate-500">{item.updated}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-8">
-                <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-                  <p className="text-xl font-semibold text-[#122033]">Quick actions</p>
-                  <div className="mt-6 grid gap-3">
-                    <button className="rounded-2xl bg-[#1457b8] px-4 py-3 text-left text-sm font-semibold text-white transition hover:bg-[#0b2f6b]">
-                      Start new invention intake
-                    </button>
-                    <button className="rounded-2xl border border-[rgba(20,87,184,0.12)] bg-white px-4 py-3 text-left text-sm font-semibold text-[#1457b8] transition hover:bg-[rgba(20,87,184,0.05)]">
-                      Create drafting workspace
-                    </button>
-                    <button className="rounded-2xl border border-[rgba(20,87,184,0.12)] bg-white px-4 py-3 text-left text-sm font-semibold text-[#1457b8] transition hover:bg-[rgba(20,87,184,0.05)]">
-                      Invite partner counsel
-                    </button>
-                  </div>
-                </div>
-
-                <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-                  <p className="text-xl font-semibold text-[#122033]">Priority tasks</p>
-                  <div className="mt-6 space-y-3">
-                    {[
-                      "Review claim structure for emissions monitoring matter",
-                      "Upload inventor notes for new university-originated disclosure",
-                      "Coordinate partner counsel handoff for prosecution package",
-                      "Finalize filing readiness checklist for enterprise pipeline",
-                    ].map((task) => (
-                      <div
-                        key={task}
-                        className="rounded-2xl border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] px-4 py-3 text-sm leading-7 text-slate-600"
-                      >
-                        {task}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-[2rem] border border-[rgba(255,138,0,0.16)] bg-[linear-gradient(135deg,#fff6ec_0%,#ffffff_100%)] p-8 shadow-[0_10px_40px_rgba(255,138,0,0.08)]">
-                  <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
-                    Signed in as
-                  </p>
-                  <p className="mt-3 text-lg font-semibold text-[#122033]">{userEmail}</p>
-                  
-                </div>
-              </div>
-            </div>
           </div>
-        );
 
-      case "intake":
-        return (
           <div className="space-y-8">
-            <div>
-              <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">Invention Intake</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
-                Capture new invention matters
-              </h1>
-              <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
-                Intake structured invention data from inventors, R&D teams, universities, startups, and enterprise stakeholders.
+            <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+              <p className="text-xl font-semibold text-[#122033]">
+                Quick actions
               </p>
-            </div>
-
-            <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
-              <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-                <p className="text-xl font-semibold text-[#122033]">New invention form</p>
-                <div className="mt-6 grid gap-4">
-                  <input
-                    placeholder="Invention title"
-                    className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none"
-                  />
-                  <input
-                    placeholder="Inventor / team name"
-                    className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none"
-                  />
-                  <select className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none">
-                    <option>Technology domain</option>
-                    <option>AI / Software</option>
-                    <option>Industrial systems</option>
-                    <option>Climate / Energy</option>
-                    <option>Electronics / Embedded</option>
-                  </select>
-                  <textarea
-                    rows={5}
-                    placeholder="Problem statement"
-                    className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none"
-                  />
-                  <textarea
-                    rows={5}
-                    placeholder="Proposed solution / novelty summary"
-                    className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none"
-                  />
-                  <div className="flex gap-3">
-                    <button className="rounded-full bg-[#1457b8] px-5 py-2.5 text-sm font-semibold text-white">
-                      Save intake
-                    </button>
-                    <button className="rounded-full border border-[rgba(20,87,184,0.12)] px-5 py-2.5 text-sm font-semibold text-[#1457b8]">
-                      Upload notes
-                    </button>
-                  </div>
-                </div>
+              <div className="mt-6 grid gap-3">
+                <button className="rounded-2xl bg-[#1457b8] px-4 py-3 text-left text-sm font-semibold text-white transition hover:bg-[#0b2f6b]">
+                  Start new invention intake
+                </button>
+                <button className="rounded-2xl border border-[rgba(20,87,184,0.12)] bg-white px-4 py-3 text-left text-sm font-semibold text-[#1457b8] transition hover:bg-[rgba(20,87,184,0.05)]">
+                  Create drafting workspace
+                </button>
+                <button className="rounded-2xl border border-[rgba(20,87,184,0.12)] bg-white px-4 py-3 text-left text-sm font-semibold text-[#1457b8] transition hover:bg-[rgba(20,87,184,0.05)]">
+                  Invite partner counsel
+                </button>
               </div>
-
-              <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-                <p className="text-xl font-semibold text-[#122033]">Recent intake queue</p>
-                <div className="mt-6 space-y-4">
-                  {[
-                    "University-originated sensor fusion disclosure",
-                    "MSME industrial safety controller concept",
-                    "Enterprise energy optimization workflow intake",
-                    "Individual inventor mechanical linkage submission",
-                  ].map((item) => (
-                    <div
-                      key={item}
-                      className="rounded-2xl border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] p-4 text-sm text-slate-600"
-                    >
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case "drafting":
-        return (
-          <div className="space-y-8">
-            <div>
-              <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">Drafting Workspace</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
-                Draft specifications, claims, and figure logic
-              </h1>
-              <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
-                Build structured patent documentation from invention inputs, technical notes, and counsel comments.
-              </p>
-            </div>
-
-            <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
-              <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-                <div className="flex items-center justify-between">
-                  <p className="text-xl font-semibold text-[#122033]">Draft matters</p>
-                  <button className="rounded-full border border-[rgba(20,87,184,0.12)] px-4 py-2 text-sm font-medium text-[#1457b8]">
-                    New draft
-                  </button>
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  {draftMatters.map((item) => (
-                    <div
-                      key={item.title}
-                      className="rounded-[1.5rem] border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] p-5"
-                    >
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="text-lg font-semibold text-[#122033]">{item.title}</p>
-                          <p className="mt-2 text-sm text-slate-500">{item.type}</p>
-                        </div>
-                        <span className="rounded-full bg-[rgba(255,138,0,0.12)] px-3 py-1 text-xs font-semibold text-[#ff8a00]">
-                          {item.progress}
-                        </span>
-                      </div>
-                      <p className="mt-3 text-sm text-slate-500">Assigned to: {item.assignee}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-8">
-                <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-                  <p className="text-xl font-semibold text-[#122033]">Draft editor preview</p>
-                  <div className="mt-6 rounded-[1.5rem] border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] p-5">
-                    <p className="text-sm font-semibold text-[#1457b8]">Independent Claim 1</p>
-                    <p className="mt-3 text-sm leading-7 text-slate-600">
-                      A system for synchronized emissions data validation in a distributed industrial sensor network, comprising...
-                    </p>
-                  </div>
-                </div>
-
-                <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-                  <p className="text-xl font-semibold text-[#122033]">Drafting actions</p>
-                  <div className="mt-6 grid gap-3">
-                    <button className="rounded-2xl bg-[#1457b8] px-4 py-3 text-left text-sm font-semibold text-white">
-                      Generate claim set
-                    </button>
-                    <button className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 text-left text-sm font-semibold text-[#1457b8]">
-                      Build abstract
-                    </button>
-                    <button className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 text-left text-sm font-semibold text-[#1457b8]">
-                      Map figures
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case "prosecution":
-        return (
-          <div className="space-y-8">
-            <div>
-              <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">Prosecution Tracker</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
-                Track applications, deadlines, and next actions
-              </h1>
-              <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
-                Monitor filing status, office actions, FER responses, partner counsel coordination, and key dates.
-              </p>
             </div>
 
             <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left">
-                  <thead>
-                    <tr className="border-b border-[rgba(20,87,184,0.08)] text-sm text-slate-500">
-                      <th className="pb-4 pr-6">Application</th>
-                      <th className="pb-4 pr-6">Title</th>
-                      <th className="pb-4 pr-6">Jurisdiction</th>
-                      <th className="pb-4 pr-6">Next action</th>
-                      <th className="pb-4 pr-6">Due date</th>
-                      <th className="pb-4">Counsel</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {prosecutionItems.map((item) => (
-                      <tr
-                        key={item.application}
-                        className="border-b border-[rgba(20,87,184,0.06)] text-sm text-slate-600"
-                      >
-                        <td className="py-4 pr-6 font-semibold text-[#1457b8]">{item.application}</td>
-                        <td className="py-4 pr-6">{item.title}</td>
-                        <td className="py-4 pr-6">{item.jurisdiction}</td>
-                        <td className="py-4 pr-6">{item.nextAction}</td>
-                        <td className="py-4 pr-6">{item.dueDate}</td>
-                        <td className="py-4">{item.counsel}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <p className="text-xl font-semibold text-[#122033]">
+                Priority tasks
+              </p>
+              <div className="mt-6 space-y-3">
+                {[
+                  "Review claim structure for emissions monitoring matter",
+                  "Upload inventor notes for new university-originated disclosure",
+                  "Coordinate partner counsel handoff for prosecution package",
+                  "Finalize filing readiness checklist for enterprise pipeline",
+                ].map((task) => (
+                  <div
+                    key={task}
+                    className="rounded-2xl border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] px-4 py-3 text-sm leading-7 text-slate-600"
+                  >
+                    {task}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-[rgba(255,138,0,0.16)] bg-[linear-gradient(135deg,#fff6ec_0%,#ffffff_100%)] p-8 shadow-[0_10px_40px_rgba(255,138,0,0.08)]">
+              <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+                Signed in as
+              </p>
+              <p className="mt-3 text-lg font-semibold text-[#122033]">
+                {userEmail}
+              </p>
+              <p className="mt-3 text-sm leading-7 text-slate-600">
+                This dashboard is connected to Supabase authentication and is
+                ready to be expanded into the full PatentOS product workspace.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderIntakeTab() {
+    return (
+      <div className="space-y-8">
+        <div>
+          <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+            Invention Intake
+          </p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
+            Capture new invention matters
+          </h1>
+          <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
+            Intake structured invention data from inventors, R&D teams,
+            universities, startups, and enterprise stakeholders.
+          </p>
+        </div>
+
+        <div className="grid gap-8 xl:grid-cols-[0.95fr_1.05fr]">
+          <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+            <p className="text-xl font-semibold text-[#122033]">
+              New invention form
+            </p>
+            <div className="mt-6 grid gap-4">
+              <input
+                placeholder="Invention title"
+                className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none"
+              />
+              <input
+                placeholder="Inventor / team name"
+                className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none"
+              />
+              <select className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none">
+                <option>Technology domain</option>
+                <option>AI / Software</option>
+                <option>Industrial systems</option>
+                <option>Climate / Energy</option>
+                <option>Electronics / Embedded</option>
+              </select>
+              <textarea
+                rows={5}
+                placeholder="Problem statement"
+                className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none"
+              />
+              <textarea
+                rows={5}
+                placeholder="Proposed solution / novelty summary"
+                className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none"
+              />
+              <div className="flex gap-3">
+                <button className="rounded-full bg-[#1457b8] px-5 py-2.5 text-sm font-semibold text-white">
+                  Save intake
+                </button>
+                <button className="rounded-full border border-[rgba(20,87,184,0.12)] px-5 py-2.5 text-sm font-semibold text-[#1457b8]">
+                  Upload notes
+                </button>
               </div>
             </div>
           </div>
-        );
 
+          <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+            <p className="text-xl font-semibold text-[#122033]">
+              Recent intake queue
+            </p>
+            <div className="mt-6 space-y-4">
+              {[
+                "University-originated sensor fusion disclosure",
+                "MSME industrial safety controller concept",
+                "Enterprise energy optimization workflow intake",
+                "Individual inventor mechanical linkage submission",
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="rounded-2xl border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] p-4 text-sm text-slate-600"
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderDraftingTab() {
+    return (
+      <div className="space-y-8">
+        <div>
+          <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+            Drafting Workspace
+          </p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
+            Draft specifications, claims, and figure logic
+          </h1>
+          <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
+            Build structured patent documentation from invention inputs,
+            technical notes, and counsel comments.
+          </p>
+        </div>
+
+        <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+            <div className="flex items-center justify-between">
+              <p className="text-xl font-semibold text-[#122033]">
+                Draft matters
+              </p>
+              <button className="rounded-full border border-[rgba(20,87,184,0.12)] px-4 py-2 text-sm font-medium text-[#1457b8]">
+                New draft
+              </button>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              {draftMatters.map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-[1.5rem] border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] p-5"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-lg font-semibold text-[#122033]">
+                        {item.title}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-500">{item.type}</p>
+                    </div>
+                    <span className="rounded-full bg-[rgba(255,138,0,0.12)] px-3 py-1 text-xs font-semibold text-[#ff8a00]">
+                      {item.progress}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm text-slate-500">
+                    Assigned to: {item.assignee}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-8">
+            <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+              <p className="text-xl font-semibold text-[#122033]">
+                Draft editor preview
+              </p>
+              <div className="mt-6 rounded-[1.5rem] border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] p-5">
+                <p className="text-sm font-semibold text-[#1457b8]">
+                  Independent Claim 1
+                </p>
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  A system for synchronized emissions data validation in a
+                  distributed industrial sensor network, comprising...
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+              <p className="text-xl font-semibold text-[#122033]">
+                Drafting actions
+              </p>
+              <div className="mt-6 grid gap-3">
+                <button className="rounded-2xl bg-[#1457b8] px-4 py-3 text-left text-sm font-semibold text-white">
+                  Generate claim set
+                </button>
+                <button className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 text-left text-sm font-semibold text-[#1457b8]">
+                  Build abstract
+                </button>
+                <button className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 text-left text-sm font-semibold text-[#1457b8]">
+                  Map figures
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderProsecutionTab() {
+    return (
+      <div className="space-y-8">
+        <div>
+          <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+            Prosecution Tracker
+          </p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
+            Track applications, deadlines, and next actions
+          </h1>
+          <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
+            Monitor filing status, office actions, FER responses, partner
+            counsel coordination, and key dates.
+          </p>
+        </div>
+
+        <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left">
+              <thead>
+                <tr className="border-b border-[rgba(20,87,184,0.08)] text-sm text-slate-500">
+                  <th className="pb-4 pr-6">Application</th>
+                  <th className="pb-4 pr-6">Title</th>
+                  <th className="pb-4 pr-6">Jurisdiction</th>
+                  <th className="pb-4 pr-6">Next action</th>
+                  <th className="pb-4 pr-6">Due date</th>
+                  <th className="pb-4">Counsel</th>
+                </tr>
+              </thead>
+              <tbody>
+                {prosecutionItems.map((item) => (
+                  <tr
+                    key={item.application}
+                    className="border-b border-[rgba(20,87,184,0.06)] text-sm text-slate-600"
+                  >
+                    <td className="py-4 pr-6 font-semibold text-[#1457b8]">
+                      {item.application}
+                    </td>
+                    <td className="py-4 pr-6">{item.title}</td>
+                    <td className="py-4 pr-6">{item.jurisdiction}</td>
+                    <td className="py-4 pr-6">{item.nextAction}</td>
+                    <td className="py-4 pr-6">{item.dueDate}</td>
+                    <td className="py-4">{item.counsel}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderDocumentsTab() {
+    return (
+      <div className="space-y-8">
+        <div>
+          <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+            Documents
+          </p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
+            Central repository for invention and filing documents
+          </h1>
+          <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
+            Organize invention disclosures, drafts, filings, checklists, and
+            related working papers in one place.
+          </p>
+        </div>
+
+        <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+            <div className="flex items-center justify-between">
+              <p className="text-xl font-semibold text-[#122033]">
+                Document library
+              </p>
+              <button className="rounded-full bg-[#1457b8] px-4 py-2 text-sm font-semibold text-white">
+                Upload document
+              </button>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              {documents.map((doc) => (
+                <div
+                  key={doc.name}
+                  className="rounded-[1.5rem] border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] p-5"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-lg font-semibold text-[#122033]">
+                        {doc.name}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-500">{doc.owner}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-[#1457b8]">
+                        {doc.category}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {doc.updated}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+            <p className="text-xl font-semibold text-[#122033]">Folders</p>
+            <div className="mt-6 grid gap-3">
+              {[
+                "Invention disclosures",
+                "Draft specifications",
+                "Claim sets",
+                "Filing packages",
+                "Counsel comments",
+                "Checklists and templates",
+              ].map((folder) => (
+                <div
+                  key={folder}
+                  className="rounded-2xl border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] px-4 py-3 text-sm text-slate-600"
+                >
+                  {folder}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderPartnersTab() {
+    return (
+      <div className="space-y-8">
+        <div>
+          <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+            Partner Counsel
+          </p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
+            Coordinate with integrated law firm and IP support partners
+          </h1>
+          <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
+            Manage partner assignments, review queues, prosecution
+            collaboration, and external drafting support.
+          </p>
+        </div>
+
+        <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
+          <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+            <p className="text-xl font-semibold text-[#122033]">
+              Partner network
+            </p>
+            <div className="mt-6 space-y-4">
+              {partnerCounsel.map((partner) => (
+                <div
+                  key={partner.name}
+                  className="rounded-[1.5rem] border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] p-5"
+                >
+                  <p className="text-lg font-semibold text-[#122033]">
+                    {partner.name}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    {partner.specialization}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <span className="rounded-full bg-[rgba(20,87,184,0.08)] px-3 py-1 text-xs font-semibold text-[#1457b8]">
+                      {partner.matters}
+                    </span>
+                    <span className="rounded-full bg-[rgba(255,138,0,0.12)] px-3 py-1 text-xs font-semibold text-[#ff8a00]">
+                      {partner.contact}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+            <p className="text-xl font-semibold text-[#122033]">
+              Assign external review
+            </p>
+            <div className="mt-6 grid gap-4">
+              <input
+                placeholder="Matter title"
+                className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none"
+              />
+              <select className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none">
+                <option>Select partner</option>
+                <option>K Law</option>
+                <option>Boutique IP Associates</option>
+                <option>US Associate Counsel</option>
+              </select>
+              <textarea
+                rows={5}
+                placeholder="Instructions / scope of external review"
+                className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none"
+              />
+              <button className="rounded-full bg-[#1457b8] px-5 py-2.5 text-sm font-semibold text-white">
+                Assign matter
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderSettingsTab() {
+    return (
+      <div className="space-y-8">
+        <div>
+          <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+            Settings
+          </p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
+            Workspace and account settings
+          </h1>
+          <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
+            Configure account preferences, workspace defaults, collaboration
+            settings, and notification controls.
+          </p>
+        </div>
+
+        <div className="grid gap-8 xl:grid-cols-2">
+          <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+            <p className="text-xl font-semibold text-[#122033]">Account</p>
+            <div className="mt-6 space-y-4">
+              <input
+                value={userEmail}
+                readOnly
+                className="w-full rounded-2xl border border-[rgba(20,87,184,0.12)] bg-[#f9fbff] px-4 py-3 outline-none"
+              />
+              <input
+                placeholder="Display name"
+                className="w-full rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none"
+              />
+              <button className="rounded-full bg-[#1457b8] px-5 py-2.5 text-sm font-semibold text-white">
+                Save account settings
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+            <p className="text-xl font-semibold text-[#122033]">
+              Notifications
+            </p>
+            <div className="mt-6 space-y-4 text-sm text-slate-600">
+              <label className="flex items-center gap-3">
+                <input type="checkbox" defaultChecked />
+                Deadline reminders
+              </label>
+              <label className="flex items-center gap-3">
+                <input type="checkbox" defaultChecked />
+                Partner counsel updates
+              </label>
+              <label className="flex items-center gap-3">
+                <input type="checkbox" defaultChecked />
+                Draft review notifications
+              </label>
+              <label className="flex items-center gap-3">
+                <input type="checkbox" />
+                Weekly portfolio digest
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderWorkspace() {
+    switch (activeTab) {
+      case "dashboard":
+        return renderDashboardTab();
+      case "intake":
+        return renderIntakeTab();
+      case "drafting":
+        return renderDraftingTab();
+      case "prosecution":
+        return renderProsecutionTab();
       case "documents":
-        return (
-          <div className="space-y-8">
-            <div>
-              <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">Documents</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
-                Central repository for invention and filing documents
-              </h1>
-              <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
-                Organize invention disclosures, drafts, filings, checklists, and related working papers in one place.
-              </p>
-            </div>
-
-            <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
-              <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-                <div className="flex items-center justify-between">
-                  <p className="text-xl font-semibold text-[#122033]">Document library</p>
-                  <button className="rounded-full bg-[#1457b8] px-4 py-2 text-sm font-semibold text-white">
-                    Upload document
-                  </button>
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  {documents.map((doc) => (
-                    <div
-                      key={doc.name}
-                      className="rounded-[1.5rem] border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] p-5"
-                    >
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <p className="text-lg font-semibold text-[#122033]">{doc.name}</p>
-                          <p className="mt-2 text-sm text-slate-500">{doc.owner}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-[#1457b8]">{doc.category}</p>
-                          <p className="mt-1 text-sm text-slate-500">{doc.updated}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-                <p className="text-xl font-semibold text-[#122033]">Folders</p>
-                <div className="mt-6 grid gap-3">
-                  {[
-                    "Invention disclosures",
-                    "Draft specifications",
-                    "Claim sets",
-                    "Filing packages",
-                    "Counsel comments",
-                    "Checklists and templates",
-                  ].map((folder) => (
-                    <div
-                      key={folder}
-                      className="rounded-2xl border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] px-4 py-3 text-sm text-slate-600"
-                    >
-                      {folder}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
+        return renderDocumentsTab();
       case "partners":
-        return (
-          <div className="space-y-8">
-            <div>
-              <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">Partner Counsel</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
-                Coordinate with integrated law firm and IP support partners
-              </h1>
-              <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
-                Manage partner assignments, review queues, prosecution collaboration, and external drafting support.
-              </p>
-            </div>
-
-            <div className="grid gap-8 xl:grid-cols-[1.05fr_0.95fr]">
-              <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-                <p className="text-xl font-semibold text-[#122033]">Partner network</p>
-                <div className="mt-6 space-y-4">
-                  {partnerCounsel.map((partner) => (
-                    <div
-                      key={partner.name}
-                      className="rounded-[1.5rem] border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] p-5"
-                    >
-                      <p className="text-lg font-semibold text-[#122033]">{partner.name}</p>
-                      <p className="mt-2 text-sm text-slate-500">{partner.specialization}</p>
-                      <div className="mt-4 flex flex-wrap gap-3">
-                        <span className="rounded-full bg-[rgba(20,87,184,0.08)] px-3 py-1 text-xs font-semibold text-[#1457b8]">
-                          {partner.matters}
-                        </span>
-                        <span className="rounded-full bg-[rgba(255,138,0,0.12)] px-3 py-1 text-xs font-semibold text-[#ff8a00]">
-                          {partner.contact}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-                <p className="text-xl font-semibold text-[#122033]">Assign external review</p>
-                <div className="mt-6 grid gap-4">
-                  <input
-                    placeholder="Matter title"
-                    className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none"
-                  />
-                  <select className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none">
-                    <option>Select partner</option>
-                    <option>K Law</option>
-                    <option>Boutique IP Associates</option>
-                    <option>US Associate Counsel</option>
-                  </select>
-                  <textarea
-                    rows={5}
-                    placeholder="Instructions / scope of external review"
-                    className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none"
-                  />
-                  <button className="rounded-full bg-[#1457b8] px-5 py-2.5 text-sm font-semibold text-white">
-                    Assign matter
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
+        return renderPartnersTab();
       case "settings":
-        return (
-          <div className="space-y-8">
-            <div>
-              <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">Settings</p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
-                Workspace and account settings
-              </h1>
-              <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
-                Configure account preferences, workspace defaults, collaboration settings, and notification controls.
-              </p>
-            </div>
-
-            <div className="grid gap-8 xl:grid-cols-2">
-              <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-                <p className="text-xl font-semibold text-[#122033]">Account</p>
-                <div className="mt-6 space-y-4">
-                  <input
-                    value={userEmail}
-                    readOnly
-                    className="w-full rounded-2xl border border-[rgba(20,87,184,0.12)] bg-[#f9fbff] px-4 py-3 outline-none"
-                  />
-                  <input
-                    placeholder="Display name"
-                    className="w-full rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 outline-none"
-                  />
-                  <button className="rounded-full bg-[#1457b8] px-5 py-2.5 text-sm font-semibold text-white">
-                    Save account settings
-                  </button>
-                </div>
-              </div>
-
-              <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-                <p className="text-xl font-semibold text-[#122033]">Notifications</p>
-                <div className="mt-6 space-y-4 text-sm text-slate-600">
-                  <label className="flex items-center gap-3">
-                    <input type="checkbox" defaultChecked />
-                    Deadline reminders
-                  </label>
-                  <label className="flex items-center gap-3">
-                    <input type="checkbox" defaultChecked />
-                    Partner counsel updates
-                  </label>
-                  <label className="flex items-center gap-3">
-                    <input type="checkbox" defaultChecked />
-                    Draft review notifications
-                  </label>
-                  <label className="flex items-center gap-3">
-                    <input type="checkbox" />
-                    Weekly portfolio digest
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
+        return renderSettingsTab();
       default:
-        return null;
+        return renderDashboardTab();
     }
   }
 
@@ -999,7 +1120,8 @@ setCurrentProjectId(data.id);
           <div className="mt-12 rounded-[1.5rem] border border-[rgba(255,138,0,0.18)] bg-[linear-gradient(135deg,#fff5ea_0%,#ffffff_100%)] p-4">
             <p className="text-sm font-semibold text-[#122033]">Vision</p>
             <p className="mt-3 text-xs leading-6 text-slate-600">
-              Help India close its patent gap by leveraging AI for real innovation workflows.
+              Help India close its patent gap by leveraging AI for real
+              innovation workflows.
             </p>
           </div>
         </aside>
@@ -1007,7 +1129,7 @@ setCurrentProjectId(data.id);
         <section className="px-6 py-8 lg:px-10">
           {viewMode === "workflow-home" && renderWorkflowHome()}
           {viewMode === "project-choice" && renderProjectChoice()}
-          {viewMode === "workspace" && renderTabContent()}
+          {viewMode === "workspace" && renderWorkspace()}
         </section>
       </div>
     </main>
