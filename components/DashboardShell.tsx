@@ -12,21 +12,101 @@ type DashboardTab =
   | "partners"
   | "settings";
 
+type WorkflowType = "draft" | "validate" | "prosecute" | null;
+type ViewMode = "workflow-home" | "project-choice" | "workspace";
+
 type DashboardShellProps = {
   userEmail: string;
 };
 
 export default function DashboardShell({ userEmail }: DashboardShellProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("dashboard");
+  const [activeWorkflow, setActiveWorkflow] = useState<WorkflowType>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("workflow-home");
+  const [hoveredTab, setHoveredTab] = useState<DashboardTab | null>(null);
 
-  const tabs: { key: DashboardTab; label: string }[] = [
-    { key: "dashboard", label: "Dashboard Home" },
-    { key: "intake", label: "Invention Intake" },
-    { key: "drafting", label: "Drafting Workspace" },
-    { key: "prosecution", label: "Prosecution Tracker" },
-    { key: "documents", label: "Documents" },
-    { key: "partners", label: "Partner Counsel" },
-    { key: "settings", label: "Settings" },
+  const tabs: {
+    key: DashboardTab;
+    label: string;
+    short: string;
+    description: string;
+  }[] = [
+    {
+      key: "dashboard",
+      label: "Dashboard Home",
+      short: "DB",
+      description:
+        "See your overall PatentOS workspace, recent matters, stats, and quick actions.",
+    },
+    {
+      key: "intake",
+      label: "Invention Intake",
+      short: "IN",
+      description:
+        "Capture invention disclosures, inventor context, novelty inputs, and early technical notes.",
+    },
+    {
+      key: "drafting",
+      label: "Drafting Workspace",
+      short: "DR",
+      description:
+        "Generate and refine specifications, claims, embodiments, and drafting structure.",
+    },
+    {
+      key: "prosecution",
+      label: "Prosecution Tracker",
+      short: "PR",
+      description:
+        "Track applications, office actions, deadlines, counsel coordination, and filing readiness.",
+    },
+    {
+      key: "documents",
+      label: "Documents",
+      short: "DC",
+      description:
+        "Manage invention disclosures, drafts, filings, checklists, and related working papers.",
+    },
+    {
+      key: "partners",
+      label: "Partner Counsel",
+      short: "PC",
+      description:
+        "Coordinate with integrated IP law firms and external support teams across matters.",
+    },
+    {
+      key: "settings",
+      label: "Settings",
+      short: "ST",
+      description:
+        "Manage workspace preferences, notifications, account information, and product defaults.",
+    },
+  ];
+
+  const workflowCards = [
+    {
+      key: "draft" as const,
+      title: "Draft",
+      subtitle:
+        "Turn invention inputs into structured patent drafting workflows.",
+      detail:
+        "Use PatentOS to capture invention context, build specifications, and generate claims in a guided drafting environment.",
+    },
+    {
+      key: "validate" as const,
+      title: "Validate",
+      subtitle:
+        "Review and strengthen existing patent draft material and filing inputs.",
+      detail:
+        "Validate invention support, drafting structure, claim logic, and completeness before moving toward filing or counsel review.",
+    },
+    {
+      key: "prosecute" as const,
+      title: "Prosecute",
+      subtitle:
+        "Manage prosecution workflow, deadlines, office actions, and counsel coordination.",
+      detail:
+        "Track examination progress, upcoming actions, and the operational path from application to grant-readiness.",
+    },
   ];
 
   const stats = useMemo(
@@ -166,7 +246,153 @@ export default function DashboardShell({ userEmail }: DashboardShellProps) {
     },
   ];
 
-  function renderTab() {
+  function startWorkflow(workflow: WorkflowType) {
+    setActiveWorkflow(workflow);
+    setViewMode("project-choice");
+  }
+
+  function continueLastProject() {
+    if (activeWorkflow === "draft") setActiveTab("drafting");
+    if (activeWorkflow === "validate") setActiveTab("documents");
+    if (activeWorkflow === "prosecute") setActiveTab("prosecution");
+    setViewMode("workspace");
+  }
+
+  function startNewProject() {
+    if (activeWorkflow === "draft") setActiveTab("intake");
+    if (activeWorkflow === "validate") setActiveTab("documents");
+    if (activeWorkflow === "prosecute") setActiveTab("prosecution");
+    setViewMode("workspace");
+  }
+
+  function getWorkflowLabel() {
+    if (activeWorkflow === "draft") return "Draft";
+    if (activeWorkflow === "validate") return "Validate";
+    if (activeWorkflow === "prosecute") return "Prosecute";
+    return "";
+  }
+
+  function renderWorkflowHome() {
+    return (
+      <div className="space-y-10">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+              PatentOS Dashboard
+            </p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
+              What would you like to do?
+            </h1>
+            <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
+              Choose a PatentOS workflow to begin. Start a new drafting, validation, or prosecution workflow from one coordinated workspace.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <LogoutButton />
+          </div>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-3">
+          {workflowCards.map((card) => (
+            <button
+              key={card.key}
+              onClick={() => startWorkflow(card.key)}
+              className="group rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 text-left shadow-[0_10px_40px_rgba(20,87,184,0.05)] transition hover:-translate-y-1 hover:border-[rgba(255,138,0,0.20)] hover:shadow-[0_18px_60px_rgba(20,87,184,0.08)]"
+            >
+              <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] bg-[linear-gradient(135deg,#0b2f6b_0%,#1457b8_65%,#ff8a00_140%)] text-lg font-semibold text-white">
+                {card.title.charAt(0)}
+              </div>
+              <h2 className="mt-6 text-3xl font-semibold tracking-[-0.03em] text-[#122033]">
+                {card.title}
+              </h2>
+              <p className="mt-4 text-base leading-8 text-slate-600">
+                {card.subtitle}
+              </p>
+              <p className="mt-5 text-sm leading-7 text-slate-500">
+                {card.detail}
+              </p>
+              <div className="mt-8 inline-flex items-center rounded-full bg-[rgba(20,87,184,0.08)] px-4 py-2 text-sm font-semibold text-[#1457b8] transition group-hover:bg-[rgba(255,138,0,0.12)] group-hover:text-[#ff8a00]">
+                Open workflow
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="rounded-[2rem] border border-[rgba(255,138,0,0.16)] bg-[linear-gradient(135deg,#fff6ec_0%,#ffffff_100%)] p-8 shadow-[0_10px_40px_rgba(255,138,0,0.08)]">
+          <p className="text-xl font-semibold text-[#122033]">Signed in as</p>
+          <p className="mt-3 text-base text-slate-600">{userEmail}</p>
+          <p className="mt-4 text-sm leading-7 text-slate-600">
+            PatentOS is designed to help India close its patent gap by leveraging AI across drafting, validation, and prosecution workflows.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  function renderProjectChoice() {
+    return (
+      <div className="space-y-10">
+        <div>
+          <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+            {getWorkflowLabel()} Workflow
+          </p>
+          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
+            Continue or start a new project
+          </h1>
+          <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
+            Choose whether you want to continue your latest {getWorkflowLabel().toLowerCase()} workflow or begin a fresh project inside PatentOS.
+          </p>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-2">
+          <button
+            onClick={continueLastProject}
+            className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 text-left shadow-[0_10px_40px_rgba(20,87,184,0.05)] transition hover:-translate-y-1"
+          >
+            <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] bg-[rgba(20,87,184,0.08)] text-lg font-semibold text-[#1457b8]">
+              C
+            </div>
+            <h2 className="mt-6 text-3xl font-semibold tracking-[-0.03em] text-[#122033]">
+              Continue last project
+            </h2>
+            <p className="mt-4 text-base leading-8 text-slate-600">
+              Resume the most recent {getWorkflowLabel().toLowerCase()} workflow and continue from where you left off.
+            </p>
+          </button>
+
+          <button
+            onClick={startNewProject}
+            className="rounded-[2rem] border border-[rgba(255,138,0,0.16)] bg-[linear-gradient(135deg,#fff6ec_0%,#ffffff_100%)] p-8 text-left shadow-[0_10px_40px_rgba(255,138,0,0.08)] transition hover:-translate-y-1"
+          >
+            <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] bg-[rgba(255,138,0,0.12)] text-lg font-semibold text-[#ff8a00]">
+              N
+            </div>
+            <h2 className="mt-6 text-3xl font-semibold tracking-[-0.03em] text-[#122033]">
+              Start new project
+            </h2>
+            <p className="mt-4 text-base leading-8 text-slate-600">
+              Open a fresh {getWorkflowLabel().toLowerCase()} workspace and begin a new PatentOS project.
+            </p>
+          </button>
+        </div>
+
+        <div>
+          <button
+            onClick={() => {
+              setActiveWorkflow(null);
+              setViewMode("workflow-home");
+            }}
+            className="rounded-full border border-[rgba(20,87,184,0.12)] bg-white px-5 py-2.5 text-sm font-semibold text-[#1457b8] transition hover:bg-[rgba(20,87,184,0.05)]"
+          >
+            Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderTabContent() {
     switch (activeTab) {
       case "dashboard":
         return (
@@ -287,9 +513,7 @@ export default function DashboardShell({ userEmail }: DashboardShellProps) {
                     Signed in as
                   </p>
                   <p className="mt-3 text-lg font-semibold text-[#122033]">{userEmail}</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-600">
-                    This dashboard is connected to Supabase authentication and is ready to be expanded into the full PatentOS product workspace.
-                  </p>
+                  
                 </div>
               </div>
             </div>
@@ -500,7 +724,7 @@ export default function DashboardShell({ userEmail }: DashboardShellProps) {
                 Central repository for invention and filing documents
               </h1>
               <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
-                Organize invention disclosures, drafts, checklists, partner comments, and filing packages in one place.
+                Organize invention disclosures, drafts, filings, checklists, and related working papers in one place.
               </p>
             </div>
 
@@ -686,39 +910,73 @@ export default function DashboardShell({ userEmail }: DashboardShellProps) {
 
   return (
     <main className="min-h-[calc(100vh-88px)] bg-[#f7f9fc] text-[#122033]">
-      <div className="grid min-h-[calc(100vh-88px)] lg:grid-cols-[280px_1fr]">
-        <aside className="border-r border-[rgba(20,87,184,0.08)] bg-white px-6 py-8">
+      <div className="grid min-h-[calc(100vh-88px)] lg:grid-cols-[110px_1fr]">
+        <aside className="relative border-r border-[rgba(20,87,184,0.08)] bg-white px-4 py-8">
           <div className="mt-2">
-            <p className="text-xs font-semibold tracking-[0.14em] text-[#ff8a00]">
-              WORKSPACE
+            <p className="text-center text-[11px] font-semibold tracking-[0.18em] text-[#ff8a00]">
+              NAV
             </p>
 
-            <nav className="mt-4 space-y-2">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`block w-full rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${
-                    activeTab === tab.key
-                      ? "bg-[rgba(20,87,184,0.08)] text-[#1457b8]"
-                      : "text-slate-600 hover:bg-[rgba(20,87,184,0.05)] hover:text-[#1457b8]"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <nav className="mt-4 space-y-3">
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.key;
+                const isHovered = hoveredTab === tab.key;
+
+                return (
+                  <div
+                    key={tab.key}
+                    className="relative"
+                    onMouseEnter={() => setHoveredTab(tab.key)}
+                    onMouseLeave={() => setHoveredTab(null)}
+                  >
+                    <button
+                      onClick={() => {
+                        setActiveTab(tab.key);
+                        setViewMode("workspace");
+                      }}
+                      className={`flex w-full flex-col items-center rounded-[1.5rem] px-3 py-4 text-center transition ${
+                        isActive
+                          ? "bg-[rgba(20,87,184,0.08)] text-[#1457b8]"
+                          : "text-slate-600 hover:bg-[rgba(20,87,184,0.05)] hover:text-[#1457b8]"
+                      }`}
+                    >
+                      <span className="text-xs font-semibold tracking-[0.08em]">
+                        {tab.short}
+                      </span>
+                      <span className="mt-2 text-[11px] leading-4">
+                        {tab.label.split(" ")[0]}
+                      </span>
+                    </button>
+
+                    {isHovered && (
+                      <div className="absolute left-[96px] top-1/2 z-30 w-72 -translate-y-1/2 rounded-[1.5rem] border border-[rgba(20,87,184,0.12)] bg-white p-5 shadow-[0_16px_50px_rgba(20,87,184,0.10)]">
+                        <p className="text-sm font-semibold text-[#122033]">
+                          {tab.label}
+                        </p>
+                        <p className="mt-3 text-sm leading-7 text-slate-600">
+                          {tab.description}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </nav>
           </div>
 
-          <div className="mt-12 rounded-[1.75rem] border border-[rgba(255,138,0,0.18)] bg-[linear-gradient(135deg,#fff5ea_0%,#ffffff_100%)] p-5">
-            <p className="text-sm font-semibold text-[#122033]">PatentOS Vision</p>
-            <p className="mt-3 text-sm leading-7 text-slate-600">
-              Help India close its patent gap with leading innovation economies by leveraging AI to turn more real inventions into high-quality patent assets.
+          <div className="mt-12 rounded-[1.5rem] border border-[rgba(255,138,0,0.18)] bg-[linear-gradient(135deg,#fff5ea_0%,#ffffff_100%)] p-4">
+            <p className="text-sm font-semibold text-[#122033]">Vision</p>
+            <p className="mt-3 text-xs leading-6 text-slate-600">
+              Help India close its patent gap by leveraging AI for real innovation workflows.
             </p>
           </div>
         </aside>
 
-        <section className="px-6 py-8 lg:px-10">{renderTab()}</section>
+        <section className="px-6 py-8 lg:px-10">
+          {viewMode === "workflow-home" && renderWorkflowHome()}
+          {viewMode === "project-choice" && renderProjectChoice()}
+          {viewMode === "workspace" && renderTabContent()}
+        </section>
       </div>
     </main>
   );
