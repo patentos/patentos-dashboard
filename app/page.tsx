@@ -12,5 +12,10 @@ export default async function Home() {
     redirect("/login");
   }
 
-  return <DashboardShell userEmail={user.email ?? "Unknown user"} />;
+  return (
+  <DashboardShell
+    userEmail={user.email ?? "Unknown user"}
+    userId={user.id}
+  />
+);
 }

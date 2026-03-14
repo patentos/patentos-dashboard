@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import LogoutButton from "@/components/LogoutButton";
-
+import { createClient } from "@/utils/supabase/client";
 type DashboardTab =
   | "dashboard"
   | "intake"
@@ -17,9 +17,10 @@ type ViewMode = "workflow-home" | "project-choice" | "workspace";
 
 type DashboardShellProps = {
   userEmail: string;
+  userId: string;
 };
 
-export default function DashboardShell({ userEmail }: DashboardShellProps) {
+export default function DashboardShell({ userEmail, userId }: DashboardShellProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("dashboard");
   const [activeWorkflow, setActiveWorkflow] = useState<WorkflowType>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("workflow-home");
@@ -258,12 +259,35 @@ export default function DashboardShell({ userEmail }: DashboardShellProps) {
     setViewMode("workspace");
   }
 
-  function startNewProject() {
-    if (activeWorkflow === "draft") setActiveTab("intake");
-    if (activeWorkflow === "validate") setActiveTab("documents");
-    if (activeWorkflow === "prosecute") setActiveTab("prosecution");
-    setViewMode("workspace");
+  async function startNewProject() {
+  const supabase = createClient();
+
+  const title =
+    activeWorkflow === "draft"
+      ? "New Draft Project"
+      : activeWorkflow === "validate"
+      ? "New Validation Project"
+      : "New Prosecution Project";
+
+  const { error } = await supabase.from("projects").insert({
+    user_id: userId,
+    title,
+    workflow_type: activeWorkflow,
+    status: "new",
+    input_text: null,
+  });
+
+  if (error) {
+    alert(error.message);
+    return;
   }
+
+  if (activeWorkflow === "draft") setActiveTab("intake");
+  if (activeWorkflow === "validate") setActiveTab("documents");
+  if (activeWorkflow === "prosecute") setActiveTab("prosecution");
+
+  setViewMode("workspace");
+}
 
   function getWorkflowLabel() {
     if (activeWorkflow === "draft") return "Draft";
