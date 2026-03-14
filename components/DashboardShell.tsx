@@ -439,9 +439,7 @@ setCurrentProjectId(data.id);
                 <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
                   Manage invention flow, drafting momentum, and prosecution readiness from one coordinated workspace.
                 </p>
-                {currentProjectId && (
-  <p className="text-sm text-slate-500">Current project ID: {currentProjectId}</p>
-)}
+                
               </div>
 
               <div className="flex items-center gap-3">
