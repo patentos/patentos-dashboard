@@ -267,7 +267,7 @@ const [draftSaveMessage, setDraftSaveMessage] = useState("");
     setViewMode("workspace");
   }
 
-  async function startNewProject() {
+    async function startNewProject() {
     if (!activeWorkflow) return;
 
     try {
@@ -301,190 +301,102 @@ const [draftSaveMessage, setDraftSaveMessage] = useState("");
       setCurrentProjectId(data.id);
 
       if (activeWorkflow === "draft") setActiveTab("drafting");
-if (activeWorkflow === "validate") setActiveTab("documents");
-if (activeWorkflow === "prosecute") setActiveTab("prosecution");
+      if (activeWorkflow === "validate") setActiveTab("documents");
+      if (activeWorkflow === "prosecute") setActiveTab("prosecution");
 
-setDraftIdeaText("");
-setDraftSaveMessage("");
-setViewMode("workspace");
+      setDraftIdeaText("");
+      setDraftSaveMessage("");
+      setViewMode("workspace");
     } catch (err) {
       alert("Could not create project.");
     } finally {
       setIsCreatingProject(false);
     }
-  async function startNewProject() {
-    if (!activeWorkflow) return;
+  }
 
-    try {
-      setIsCreatingProject(true);
-      const supabase = createClient();
-
-      const title =
-        activeWorkflow === "draft"
-          ? "New Draft Project"
-          : activeWorkflow === "validate"
-          ? "New Validation Project"
-          : "New Prosecution Project";
-
-      const { data, error } = await supabase
-        .from("projects")
-        .insert({
-          user_id: userId,
-          title,
-          workflow_type: activeWorkflow,
-          status: "new",
-          input_text: null,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        alert(error.message);
-        return;
-      }
-
-      setCurrentProjectId(data.id);
-
-      if (activeWorkflow === "draft") setActiveTab("drafting");
-if (activeWorkflow === "validate") setActiveTab("documents");
-if (activeWorkflow === "prosecute") setActiveTab("prosecution");
-
-setDraftIdeaText("");
-setDraftSaveMessage("");
-setViewMode("workspace");
-    } catch (err) {
-      alert("Could not create project.");
-    } finally {
-      setIsCreatingProject(false);
-    }
-  async function startNewProject() {
-    if (!activeWorkflow) return;
-
-    try {
-      setIsCreatingProject(true);
-      const supabase = createClient();
-
-      const title =
-        activeWorkflow === "draft"
-          ? "New Draft Project"
-          : activeWorkflow === "validate"
-          ? "New Validation Project"
-          : "New Prosecution Project";
-
-      const { data, error } = await supabase
-        .from("projects")
-        .insert({
-          user_id: userId,
-          title,
-          workflow_type: activeWorkflow,
-          status: "new",
-          input_text: null,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        alert(error.message);
-        return;
-      }
-
-      setCurrentProjectId(data.id);
-
-      if (activeWorkflow === "draft") setActiveTab("drafting");
-if (activeWorkflow === "validate") setActiveTab("documents");
-if (activeWorkflow === "prosecute") setActiveTab("prosecution");
-
-setDraftIdeaText("");
-setDraftSaveMessage("");
-setViewMode("workspace");
-    } catch (err) {
-      alert("Could not create project.");
-    } finally {
-      setIsCreatingProject(false);
-    }
   async function saveDraftIdea() {
-  if (!currentProjectId) {
-    alert("No active project found.");
-    return;
-  }
-
-  if (!draftIdeaText.trim()) {
-    alert("Please describe what is in your inventive mind today.");
-    return;
-  }
-
-  try {
-    setIsSavingDraftIdea(true);
-    setDraftSaveMessage("");
-
-    const supabase = createClient();
-
-    const derivedTitle =
-      draftIdeaText.trim().split("\n")[0].slice(0, 100) || "New Draft Project";
-
-    const { error: projectError } = await supabase
-      .from("projects")
-      .update({
-        title: derivedTitle,
-        input_text: draftIdeaText.trim(),
-        status: "in_progress",
-      })
-      .eq("id", currentProjectId)
-      .eq("user_id", userId);
-
-    if (projectError) {
-      alert(projectError.message);
+    if (!currentProjectId) {
+      alert("No active project found.");
       return;
     }
 
-    const { data: existingSection, error: findError } = await supabase
-      .from("project_sections")
-      .select("id")
-      .eq("project_id", currentProjectId)
-      .eq("section_type", "field_of_invention")
-      .maybeSingle();
-
-    if (findError) {
-      alert(findError.message);
+    if (!draftIdeaText.trim()) {
+      alert("Please describe what is in your inventive mind today.");
       return;
     }
 
-    if (existingSection?.id) {
-      const { error: updateSectionError } = await supabase
-        .from("project_sections")
+    try {
+      setIsSavingDraftIdea(true);
+      setDraftSaveMessage("");
+
+      const supabase = createClient();
+
+      const derivedTitle =
+        draftIdeaText.trim().split("\n")[0].slice(0, 100) || "New Draft Project";
+
+      const { error: projectError } = await supabase
+        .from("projects")
         .update({
-          content: draftIdeaText.trim(),
-          updated_at: new Date().toISOString(),
+          title: derivedTitle,
+          input_text: draftIdeaText.trim(),
+          status: "in_progress",
         })
-        .eq("id", existingSection.id);
+        .eq("id", currentProjectId)
+        .eq("user_id", userId);
 
-      if (updateSectionError) {
-        alert(updateSectionError.message);
+      if (projectError) {
+        alert(projectError.message);
         return;
       }
-    } else {
-      const { error: insertSectionError } = await supabase
+
+      const { data: existingSection, error: findError } = await supabase
         .from("project_sections")
-        .insert({
-          project_id: currentProjectId,
-          section_type: "field_of_invention",
-          content: draftIdeaText.trim(),
-          sort_order: 1,
-        });
+        .select("id")
+        .eq("project_id", currentProjectId)
+        .eq("section_type", "field_of_invention")
+        .maybeSingle();
 
-      if (insertSectionError) {
-        alert(insertSectionError.message);
+      if (findError) {
+        alert(findError.message);
         return;
       }
-    }
 
-    setDraftSaveMessage("Draft idea saved successfully.");
-  } catch (err) {
-    alert("Could not save draft idea.");
-  } finally {
-    setIsSavingDraftIdea(false);
+      if (existingSection?.id) {
+        const { error: updateSectionError } = await supabase
+          .from("project_sections")
+          .update({
+            content: draftIdeaText.trim(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingSection.id);
+
+        if (updateSectionError) {
+          alert(updateSectionError.message);
+          return;
+        }
+      } else {
+        const { error: insertSectionError } = await supabase
+          .from("project_sections")
+          .insert({
+            project_id: currentProjectId,
+            section_type: "field_of_invention",
+            content: draftIdeaText.trim(),
+            sort_order: 1,
+          });
+
+        if (insertSectionError) {
+          alert(insertSectionError.message);
+          return;
+        }
+      }
+
+      setDraftSaveMessage("Draft idea saved successfully.");
+    } catch (err) {
+      alert("Could not save draft idea.");
+    } finally {
+      setIsSavingDraftIdea(false);
+    }
   }
-}}
 
   function getWorkflowLabel() {
     if (activeWorkflow === "draft") return "Draft";
