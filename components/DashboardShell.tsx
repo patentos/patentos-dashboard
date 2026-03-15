@@ -31,7 +31,9 @@ export default function DashboardShell({
   const [hoveredTab, setHoveredTab] = useState<DashboardTab | null>(null);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
-
+const [draftIdeaText, setDraftIdeaText] = useState("");
+const [isSavingDraftIdea, setIsSavingDraftIdea] = useState(false);
+const [draftSaveMessage, setDraftSaveMessage] = useState("");
   const tabs: {
     key: DashboardTab;
     label: string;
@@ -298,17 +300,191 @@ export default function DashboardShell({
 
       setCurrentProjectId(data.id);
 
-      if (activeWorkflow === "draft") setActiveTab("intake");
-      if (activeWorkflow === "validate") setActiveTab("documents");
-      if (activeWorkflow === "prosecute") setActiveTab("prosecution");
+      if (activeWorkflow === "draft") setActiveTab("drafting");
+if (activeWorkflow === "validate") setActiveTab("documents");
+if (activeWorkflow === "prosecute") setActiveTab("prosecution");
 
-      setViewMode("workspace");
+setDraftIdeaText("");
+setDraftSaveMessage("");
+setViewMode("workspace");
     } catch (err) {
       alert("Could not create project.");
     } finally {
       setIsCreatingProject(false);
     }
+  async function startNewProject() {
+    if (!activeWorkflow) return;
+
+    try {
+      setIsCreatingProject(true);
+      const supabase = createClient();
+
+      const title =
+        activeWorkflow === "draft"
+          ? "New Draft Project"
+          : activeWorkflow === "validate"
+          ? "New Validation Project"
+          : "New Prosecution Project";
+
+      const { data, error } = await supabase
+        .from("projects")
+        .insert({
+          user_id: userId,
+          title,
+          workflow_type: activeWorkflow,
+          status: "new",
+          input_text: null,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      setCurrentProjectId(data.id);
+
+      if (activeWorkflow === "draft") setActiveTab("drafting");
+if (activeWorkflow === "validate") setActiveTab("documents");
+if (activeWorkflow === "prosecute") setActiveTab("prosecution");
+
+setDraftIdeaText("");
+setDraftSaveMessage("");
+setViewMode("workspace");
+    } catch (err) {
+      alert("Could not create project.");
+    } finally {
+      setIsCreatingProject(false);
+    }
+  async function startNewProject() {
+    if (!activeWorkflow) return;
+
+    try {
+      setIsCreatingProject(true);
+      const supabase = createClient();
+
+      const title =
+        activeWorkflow === "draft"
+          ? "New Draft Project"
+          : activeWorkflow === "validate"
+          ? "New Validation Project"
+          : "New Prosecution Project";
+
+      const { data, error } = await supabase
+        .from("projects")
+        .insert({
+          user_id: userId,
+          title,
+          workflow_type: activeWorkflow,
+          status: "new",
+          input_text: null,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      setCurrentProjectId(data.id);
+
+      if (activeWorkflow === "draft") setActiveTab("drafting");
+if (activeWorkflow === "validate") setActiveTab("documents");
+if (activeWorkflow === "prosecute") setActiveTab("prosecution");
+
+setDraftIdeaText("");
+setDraftSaveMessage("");
+setViewMode("workspace");
+    } catch (err) {
+      alert("Could not create project.");
+    } finally {
+      setIsCreatingProject(false);
+    }
+  async function saveDraftIdea() {
+  if (!currentProjectId) {
+    alert("No active project found.");
+    return;
   }
+
+  if (!draftIdeaText.trim()) {
+    alert("Please describe what is in your inventive mind today.");
+    return;
+  }
+
+  try {
+    setIsSavingDraftIdea(true);
+    setDraftSaveMessage("");
+
+    const supabase = createClient();
+
+    const derivedTitle =
+      draftIdeaText.trim().split("\n")[0].slice(0, 100) || "New Draft Project";
+
+    const { error: projectError } = await supabase
+      .from("projects")
+      .update({
+        title: derivedTitle,
+        input_text: draftIdeaText.trim(),
+        status: "in_progress",
+      })
+      .eq("id", currentProjectId)
+      .eq("user_id", userId);
+
+    if (projectError) {
+      alert(projectError.message);
+      return;
+    }
+
+    const { data: existingSection, error: findError } = await supabase
+      .from("project_sections")
+      .select("id")
+      .eq("project_id", currentProjectId)
+      .eq("section_type", "field_of_invention")
+      .maybeSingle();
+
+    if (findError) {
+      alert(findError.message);
+      return;
+    }
+
+    if (existingSection?.id) {
+      const { error: updateSectionError } = await supabase
+        .from("project_sections")
+        .update({
+          content: draftIdeaText.trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingSection.id);
+
+      if (updateSectionError) {
+        alert(updateSectionError.message);
+        return;
+      }
+    } else {
+      const { error: insertSectionError } = await supabase
+        .from("project_sections")
+        .insert({
+          project_id: currentProjectId,
+          section_type: "field_of_invention",
+          content: draftIdeaText.trim(),
+          sort_order: 1,
+        });
+
+      if (insertSectionError) {
+        alert(insertSectionError.message);
+        return;
+      }
+    }
+
+    setDraftSaveMessage("Draft idea saved successfully.");
+  } catch (err) {
+    alert("Could not save draft idea.");
+  } finally {
+    setIsSavingDraftIdea(false);
+  }
+}}
 
   function getWorkflowLabel() {
     if (activeWorkflow === "draft") return "Draft";
@@ -680,94 +856,112 @@ export default function DashboardShell({
   }
 
   function renderDraftingTab() {
-    return (
-      <div className="space-y-8">
-        <div>
-          <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
-            Drafting Workspace
+  return (
+    <div className="space-y-8">
+      <div>
+        <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+          Draft Workflow
+        </p>
+        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
+          What is in your inventive mind today?
+        </h1>
+        <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
+          Write in plain language. PatentOS will handle the legal structure,
+          specification flow, and downstream drafting support.
+        </p>
+        {currentProjectId && (
+          <p className="mt-3 text-sm text-slate-500">
+            Current project ID: {currentProjectId}
           </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
-            Draft specifications, claims, and figure logic
-          </h1>
-          <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
-            Build structured patent documentation from invention inputs,
-            technical notes, and counsel comments.
-          </p>
-        </div>
+        )}
+      </div>
 
-        <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-            <div className="flex items-center justify-between">
+      <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+          <div className="flex items-start justify-between gap-4">
+            <div>
               <p className="text-xl font-semibold text-[#122033]">
-                Draft matters
+                Describe your invention
               </p>
-              <button className="rounded-full border border-[rgba(20,87,184,0.12)] px-4 py-2 text-sm font-medium text-[#1457b8]">
-                New draft
-              </button>
+              <p className="mt-2 text-sm leading-7 text-slate-500">
+                No patent jargon needed. Just tell PatentOS what the idea does,
+                how it works, and why it matters.
+              </p>
             </div>
 
-            <div className="mt-6 space-y-4">
-              {draftMatters.map((item) => (
+            <div className="flex h-12 w-12 items-center justify-center rounded-[1.25rem] bg-[linear-gradient(135deg,#0b2f6b_0%,#1457b8_65%,#ff8a00_140%)] text-lg font-semibold text-white">
+              D
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <textarea
+              rows={10}
+              value={draftIdeaText}
+              onChange={(e) => setDraftIdeaText(e.target.value)}
+              placeholder="For example: I have built a system that predicts abnormal kiln conditions using temperature patterns, sensor behavior, and control history, so operators can intervene earlier and reduce energy waste..."
+              className="w-full rounded-[1.5rem] border border-[rgba(20,87,184,0.12)] px-5 py-4 text-base leading-8 text-[#122033] outline-none transition placeholder:text-slate-400 focus:border-[rgba(20,87,184,0.24)]"
+            />
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <button
+              onClick={saveDraftIdea}
+              disabled={isSavingDraftIdea}
+              className="rounded-full bg-[#1457b8] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#0b2f6b] disabled:opacity-60"
+            >
+              {isSavingDraftIdea ? "Saving..." : "Save and continue"}
+            </button>
+
+            <button className="rounded-full border border-[rgba(20,87,184,0.12)] bg-white px-6 py-3 text-sm font-semibold text-[#1457b8] transition hover:bg-[rgba(20,87,184,0.05)]">
+              Upload a document
+            </button>
+          </div>
+
+          {draftSaveMessage && (
+            <p className="mt-4 text-sm font-medium text-green-600">
+              {draftSaveMessage}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-8">
+          <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+            <p className="text-xl font-semibold text-[#122033]">
+              What PatentOS will do next
+            </p>
+            <div className="mt-6 space-y-3">
+              {[
+                "Structure the invention into drafting-ready patent sections",
+                "Build the field of invention, background, and summary",
+                "Prepare a detailed description workflow with embodiments",
+                "Support claim generation in later drafting steps",
+              ].map((item) => (
                 <div
-                  key={item.title}
-                  className="rounded-[1.5rem] border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] p-5"
+                  key={item}
+                  className="rounded-2xl border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] px-4 py-3 text-sm leading-7 text-slate-600"
                 >
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-lg font-semibold text-[#122033]">
-                        {item.title}
-                      </p>
-                      <p className="mt-2 text-sm text-slate-500">{item.type}</p>
-                    </div>
-                    <span className="rounded-full bg-[rgba(255,138,0,0.12)] px-3 py-1 text-xs font-semibold text-[#ff8a00]">
-                      {item.progress}
-                    </span>
-                  </div>
-                  <p className="mt-3 text-sm text-slate-500">
-                    Assigned to: {item.assignee}
-                  </p>
+                  {item}
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="space-y-8">
-            <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-              <p className="text-xl font-semibold text-[#122033]">
-                Draft editor preview
-              </p>
-              <div className="mt-6 rounded-[1.5rem] border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] p-5">
-                <p className="text-sm font-semibold text-[#1457b8]">
-                  Independent Claim 1
-                </p>
-                <p className="mt-3 text-sm leading-7 text-slate-600">
-                  A system for synchronized emissions data validation in a
-                  distributed industrial sensor network, comprising...
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-              <p className="text-xl font-semibold text-[#122033]">
-                Drafting actions
-              </p>
-              <div className="mt-6 grid gap-3">
-                <button className="rounded-2xl bg-[#1457b8] px-4 py-3 text-left text-sm font-semibold text-white">
-                  Generate claim set
-                </button>
-                <button className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 text-left text-sm font-semibold text-[#1457b8]">
-                  Build abstract
-                </button>
-                <button className="rounded-2xl border border-[rgba(20,87,184,0.12)] px-4 py-3 text-left text-sm font-semibold text-[#1457b8]">
-                  Map figures
-                </button>
-              </div>
-            </div>
+          <div className="rounded-[2rem] border border-[rgba(255,138,0,0.16)] bg-[linear-gradient(135deg,#fff6ec_0%,#ffffff_100%)] p-8 shadow-[0_10px_40px_rgba(255,138,0,0.08)]">
+            <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+              Drafting principle
+            </p>
+            <p className="mt-3 text-base leading-8 text-slate-600">
+              PatentOS keeps the entry experience simple for inventors and
+              founders, then expands the material into structured patent content
+              behind the scenes.
+            </p>
           </div>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   function renderProsecutionTab() {
     return (
