@@ -2,15 +2,6 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-});
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 const SYSTEM_PROMPT = `
 You are PatentOS.
 
@@ -28,6 +19,23 @@ Return under these exact headings:
 
 export async function POST(req: Request) {
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+
+    if (!supabaseUrl || !supabaseServiceRoleKey || !anthropicApiKey) {
+      return NextResponse.json(
+        { error: "Missing required server environment variables." },
+        { status: 500 }
+      );
+    }
+
+    const anthropic = new Anthropic({
+      apiKey: anthropicApiKey,
+    });
+
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
     const { projectId, idea } = await req.json();
 
     if (!projectId || !idea?.trim()) {
@@ -60,15 +68,9 @@ export async function POST(req: Request) {
     const output =
       aiResponse.content[0]?.type === "text" ? aiResponse.content[0].text : "";
 
-    const refinedIdeaMatch = output.match(
-      /Refined Idea[:\s]*([\s\S]*?)Assumptions Made[:\s]*/i
-    );
-    const assumptionsMatch = output.match(
-      /Assumptions Made[:\s]*([\s\S]*?)Missing Details[:\s]*/i
-    );
-    const missingDetailsMatch = output.match(
-      /Missing Details[:\s]*([\s\S]*)/i
-    );
+    const refinedIdeaMatch = output.match(/Refined Idea[:\s]*([\s\S]*?)Assumptions Made[:\s]*/i);
+    const assumptionsMatch = output.match(/Assumptions Made[:\s]*([\s\S]*?)Missing Details[:\s]*/i);
+    const missingDetailsMatch = output.match(/Missing Details[:\s]*([\s\S]*)/i);
 
     const refinedIdea = refinedIdeaMatch?.[1]?.trim() || "";
     const assumptionsMade = assumptionsMatch?.[1]?.trim() || "";
@@ -78,12 +80,7 @@ export async function POST(req: Request) {
       project_id: projectId,
       role: "assistant",
       message_type: "refined_idea",
-      content: JSON.stringify({
-        refinedIdea,
-        assumptionsMade,
-        missingDetails,
-        rawOutput: output,
-      }),
+      content: output,
       stage: "idea_refinement_review",
     });
 
@@ -93,19 +90,14 @@ export async function POST(req: Request) {
       model: "claude-sonnet-4-5",
       status: "success",
       request_payload: { idea },
-      response_payload: {
-        refinedIdea,
-        assumptionsMade,
-        missingDetails,
-        rawOutput: output,
-      },
+      response_payload: { output },
     });
 
     await supabase
       .from("projects")
       .update({
         stage: "idea_refinement_review",
-        refined_idea: refinedIdea,
+        refined_idea: output,
         updated_at: new Date().toISOString(),
       })
       .eq("id", projectId);
