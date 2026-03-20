@@ -34,6 +34,12 @@ export default function DashboardShell({
 const [draftIdeaText, setDraftIdeaText] = useState("");
 const [isSavingDraftIdea, setIsSavingDraftIdea] = useState(false);
 const [draftSaveMessage, setDraftSaveMessage] = useState("");
+const [isRefiningIdea, setIsRefiningIdea] = useState(false);
+const [refinedIdea, setRefinedIdea] = useState("");
+const [assumptionsMade, setAssumptionsMade] = useState("");
+const [missingDetails, setMissingDetails] = useState("");
+const [refineError, setRefineError] = useState("");
+const [showRefinedIdea, setShowRefinedIdea] = useState(false);
   const tabs: {
     key: DashboardTab;
     label: string;
@@ -391,10 +397,45 @@ const [draftSaveMessage, setDraftSaveMessage] = useState("");
       }
 
       setDraftSaveMessage("Draft idea saved successfully.");
+setRefineError("");
+setShowRefinedIdea(false);
+setRefinedIdea("");
+setAssumptionsMade("");
+setMissingDetails("");
+
+setIsRefiningIdea(true);
+
+const response = await fetch("/api/draft/refine-idea", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    projectId: currentProjectId,
+    userId,
+    idea: draftIdeaText.trim(),
+  }),
+});
+
+const result = await response.json();
+
+if (!response.ok) {
+  throw new Error(result?.error || "Could not refine idea.");
+}
+
+setRefinedIdea(result.refinedIdea || "");
+setAssumptionsMade(result.assumptionsMade || "");
+setMissingDetails(result.missingDetails || "");
+setShowRefinedIdea(true);
+setDraftSaveMessage("Idea saved and refined successfully.");
     } catch (err) {
-      alert("Could not save draft idea.");
+      const message =
+  err instanceof Error ? err.message : "Could not save draft idea.";
+setRefineError(message);
+alert(message);
     } finally {
       setIsSavingDraftIdea(false);
+      setIsRefiningIdea(false);
     }
   }
 
@@ -835,6 +876,73 @@ const [draftSaveMessage, setDraftSaveMessage] = useState("");
               {draftSaveMessage}
             </p>
           )}
+          {isRefiningIdea && (
+  <div className="mt-6 rounded-[1.5rem] border border-[rgba(20,87,184,0.10)] bg-[#f9fbff] p-5">
+    <p className="text-sm font-semibold text-[#1457b8]">
+      PatentOS is refining your invention idea...
+    </p>
+  </div>
+)}
+
+{refineError && (
+  <div className="mt-6 rounded-[1.5rem] border border-[rgba(220,38,38,0.12)] bg-red-50 p-5">
+    <p className="text-sm font-semibold text-red-600">{refineError}</p>
+  </div>
+)}
+
+{showRefinedIdea && (
+  <div className="mt-6 space-y-4 rounded-[1.5rem] border border-[rgba(20,87,184,0.10)] bg-[#f9fbff] p-6">
+    <div>
+      <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+        Refined Idea
+      </p>
+      <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-700">
+        {refinedIdea}
+      </p>
+    </div>
+
+    <div>
+      <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+        Assumptions Made
+      </p>
+      <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-700">
+        {assumptionsMade}
+      </p>
+    </div>
+
+    <div>
+      <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+        Missing Details
+      </p>
+      <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-700">
+        {missingDetails}
+      </p>
+    </div>
+
+    <div className="flex flex-wrap gap-3 pt-2">
+      <button
+        onClick={() => {
+          setDraftIdeaText(refinedIdea);
+          setShowRefinedIdea(false);
+          setDraftSaveMessage("Refined idea accepted. You can now proceed.");
+        }}
+        className="rounded-full bg-[#1457b8] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b2f6b]"
+      >
+        Yes, this refinement is okay
+      </button>
+
+      <button
+        onClick={() => {
+          setShowRefinedIdea(false);
+          setDraftSaveMessage("Please refine your invention description and try again.");
+        }}
+        className="rounded-full border border-[rgba(20,87,184,0.12)] bg-white px-5 py-2.5 text-sm font-semibold text-[#1457b8] transition hover:bg-[rgba(20,87,184,0.05)]"
+      >
+        No, I want to revise it
+      </button>
+    </div>
+  </div>
+)}
         </div>
 
         <div className="space-y-8">
