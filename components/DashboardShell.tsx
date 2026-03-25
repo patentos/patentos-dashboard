@@ -30,16 +30,34 @@ export default function DashboardShell({
   const [viewMode, setViewMode] = useState<ViewMode>("workflow-home");
   const [hoveredTab, setHoveredTab] = useState<DashboardTab | null>(null);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [projectStage, setProjectStage] = useState("");
   const [isCreatingProject, setIsCreatingProject] = useState(false);
-const [draftIdeaText, setDraftIdeaText] = useState("");
-const [isSavingDraftIdea, setIsSavingDraftIdea] = useState(false);
-const [draftSaveMessage, setDraftSaveMessage] = useState("");
-const [isRefiningIdea, setIsRefiningIdea] = useState(false);
-const [refinedIdea, setRefinedIdea] = useState("");
-const [assumptionsMade, setAssumptionsMade] = useState("");
-const [missingDetails, setMissingDetails] = useState("");
-const [refineError, setRefineError] = useState("");
-const [showRefinedIdea, setShowRefinedIdea] = useState(false);
+
+  const [draftIdeaText, setDraftIdeaText] = useState("");
+  const [isSavingDraftIdea, setIsSavingDraftIdea] = useState(false);
+  const [draftSaveMessage, setDraftSaveMessage] = useState("");
+
+  const [isRefiningIdea, setIsRefiningIdea] = useState(false);
+  const [refinedIdea, setRefinedIdea] = useState("");
+  const [assumptionsMade, setAssumptionsMade] = useState("");
+  const [missingDetails, setMissingDetails] = useState("");
+  const [refineError, setRefineError] = useState("");
+  const [showRefinedIdea, setShowRefinedIdea] = useState(false);
+  const [isAcceptingRefinedIdea, setIsAcceptingRefinedIdea] = useState(false);
+const [priorArtOutput, setPriorArtOutput] = useState("");
+const [noveltyAnalysisOutput, setNoveltyAnalysisOutput] = useState("");
+const [isGeneratingNoveltyAnalysis, setIsGeneratingNoveltyAnalysis] = useState(false);
+const [selectedNoveltyOption, setSelectedNoveltyOption] = useState("");
+const [selectedNoveltyStrength, setSelectedNoveltyStrength] = useState("");
+const [selectingNovelty, setSelectingNovelty] = useState(false);
+const [selectionError, setSelectionError] = useState<string | null>(null);
+const [noveltyOption1, setNoveltyOption1] = useState("");
+const [noveltyStrength1, setNoveltyStrength1] = useState("");
+const [noveltyOption2, setNoveltyOption2] = useState("");
+const [noveltyStrength2, setNoveltyStrength2] = useState("");
+const [noveltyOption3, setNoveltyOption3] = useState("");
+const [noveltyStrength3, setNoveltyStrength3] = useState("");
+const [isGeneratingPriorArt, setIsGeneratingPriorArt] = useState(false);
   const tabs: {
     key: DashboardTab;
     label: string;
@@ -165,27 +183,6 @@ const [showRefinedIdea, setShowRefinedIdea] = useState(false);
     },
   ];
 
-  const draftMatters = [
-    {
-      title: "Digital twin control architecture",
-      type: "Specification + claims",
-      progress: "72%",
-      assignee: "Drafting team",
-    },
-    {
-      title: "AI emissions anomaly prediction",
-      type: "Claims refinement",
-      progress: "48%",
-      assignee: "Patent counsel",
-    },
-    {
-      title: "Energy load balancing orchestration",
-      type: "Figure mapping",
-      progress: "85%",
-      assignee: "In-house IP",
-    },
-  ];
-
   const prosecutionItems = [
     {
       application: "IN-2026-000145",
@@ -273,7 +270,7 @@ const [showRefinedIdea, setShowRefinedIdea] = useState(false);
     setViewMode("workspace");
   }
 
-    async function startNewProject() {
+  async function startNewProject() {
     if (!activeWorkflow) return;
 
     try {
@@ -305,6 +302,7 @@ const [showRefinedIdea, setShowRefinedIdea] = useState(false);
       }
 
       setCurrentProjectId(data.id);
+      setProjectStage("new");
 
       if (activeWorkflow === "draft") setActiveTab("drafting");
       if (activeWorkflow === "validate") setActiveTab("documents");
@@ -312,8 +310,13 @@ const [showRefinedIdea, setShowRefinedIdea] = useState(false);
 
       setDraftIdeaText("");
       setDraftSaveMessage("");
+      setRefinedIdea("");
+      setAssumptionsMade("");
+      setMissingDetails("");
+      setRefineError("");
+      setShowRefinedIdea(false);
       setViewMode("workspace");
-    } catch (err) {
+    } catch {
       alert("Could not create project.");
     } finally {
       setIsCreatingProject(false);
@@ -334,6 +337,11 @@ const [showRefinedIdea, setShowRefinedIdea] = useState(false);
     try {
       setIsSavingDraftIdea(true);
       setDraftSaveMessage("");
+      setRefineError("");
+      setShowRefinedIdea(false);
+      setRefinedIdea("");
+      setAssumptionsMade("");
+      setMissingDetails("");
 
       const supabase = createClient();
 
@@ -397,45 +405,90 @@ const [showRefinedIdea, setShowRefinedIdea] = useState(false);
       }
 
       setDraftSaveMessage("Draft idea saved successfully.");
-setRefineError("");
-setShowRefinedIdea(false);
-setRefinedIdea("");
-setAssumptionsMade("");
-setMissingDetails("");
+      setIsRefiningIdea(true);
 
-setIsRefiningIdea(true);
+      const response = await fetch("/api/draft/refine-idea", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectId: currentProjectId,
+          userId,
+          idea: draftIdeaText.trim(),
+        }),
+      });
 
-const response = await fetch("/api/draft/refine-idea", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    projectId: currentProjectId,
-    userId,
-    idea: draftIdeaText.trim(),
-  }),
-});
+      const result = await response.json();
 
-const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result?.error || "Could not refine idea.");
+      }
 
-if (!response.ok) {
-  throw new Error(result?.error || "Could not refine idea.");
-}
-
-setRefinedIdea(result.refinedIdea || "");
-setAssumptionsMade(result.assumptionsMade || "");
-setMissingDetails(result.missingDetails || "");
-setShowRefinedIdea(true);
-setDraftSaveMessage("Idea saved and refined successfully.");
+      setRefinedIdea(result.refinedIdea || "");
+      setAssumptionsMade(result.assumptionsMade || "");
+      setMissingDetails(result.missingDetails || "");
+      setProjectStage("idea_refinement_review");
+      setShowRefinedIdea(true);
+      setDraftSaveMessage("Idea saved and refined successfully.");
     } catch (err) {
       const message =
-  err instanceof Error ? err.message : "Could not save draft idea.";
-setRefineError(message);
-alert(message);
+        err instanceof Error ? err.message : "Could not save draft idea.";
+      setRefineError(message);
+      alert(message);
     } finally {
       setIsSavingDraftIdea(false);
       setIsRefiningIdea(false);
+    }
+  }
+
+  async function acceptRefinedIdea() {
+    if (!currentProjectId) {
+      alert("No active project found.");
+      return;
+    }
+
+    if (!refinedIdea.trim()) {
+      alert("No refined idea found.");
+      return;
+    }
+
+    try {
+      setIsAcceptingRefinedIdea(true);
+      setRefineError("");
+      setDraftSaveMessage("");
+
+      const response = await fetch("/api/draft/accept-refined-idea", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectId: currentProjectId,
+          userId,
+          refinedIdea: refinedIdea.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Could not accept refined idea.");
+      }
+
+      setProjectStage(result.stage || "prior_art_search_pending");
+      setDraftIdeaText(refinedIdea);
+      setShowRefinedIdea(false);
+      setDraftSaveMessage(
+        "Refined idea accepted. Prior art search is the next stage."
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not accept refined idea.";
+      setRefineError(message);
+      alert(message);
+    } finally {
+      setIsAcceptingRefinedIdea(false);
     }
   }
 
@@ -445,7 +498,107 @@ alert(message);
     if (activeWorkflow === "prosecute") return "Prosecute";
     return "";
   }
+async function generateNoveltyAnalysis() {
+  if (!currentProjectId) {
+    alert("No active project found.");
+    return;
+  }
 
+  try {
+    setIsGeneratingNoveltyAnalysis(true);
+    setRefineError("");
+    setDraftSaveMessage("");
+
+    const response = await fetch("/api/draft/prior-art-analysis", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        projectId: currentProjectId,
+      }),
+    });
+
+    const rawText = await response.text();
+    const result = rawText ? JSON.parse(rawText) : {};
+
+    if (!response.ok) {
+      throw new Error(
+        result?.error || "Failed to generate novelty analysis."
+      );
+    }
+
+   setNoveltyAnalysisOutput(result.output || "");
+setNoveltyOption1(result.noveltyOption1 || "");
+setNoveltyStrength1(result.strength1 || "");
+setNoveltyOption2(result.noveltyOption2 || "");
+setNoveltyStrength2(result.strength2 || "");
+setNoveltyOption3(result.noveltyOption3 || "");
+setNoveltyStrength3(result.strength3 || "");
+setProjectStage("novelty_selection");
+setDraftSaveMessage("Novelty analysis generated successfully.");
+  } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : "Failed to generate novelty analysis.";
+    setRefineError(message);
+    alert(message);
+  } finally {
+    setIsGeneratingNoveltyAnalysis(false);
+  }
+}
+async function handleSelectNovelty(
+  novelty: string,
+  strength: string
+) {
+  if (!currentProjectId) {
+    alert("No active project found.");
+    return;
+  }
+
+  try {
+    setSelectingNovelty(true);
+    setSelectionError(null);
+    setRefineError("");
+    setDraftSaveMessage("");
+
+    const response = await fetch("/api/draft/select-novelty", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        projectId: currentProjectId,
+        selectedNovelty: novelty,
+        selectedStrength: strength,
+      }),
+    });
+
+    const rawText = await response.text();
+    const result = rawText ? JSON.parse(rawText) : {};
+
+    if (!response.ok) {
+      throw new Error(
+        result?.error || "Failed to confirm novelty selection."
+      );
+    }
+
+    setSelectedNoveltyOption(novelty);
+    setSelectedNoveltyStrength(strength);
+    setProjectStage("drafting_core_sections");
+    setDraftSaveMessage("Novelty selected successfully. Moving to drafting.");
+  } catch (err) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : "Failed to confirm novelty selection.";
+    setSelectionError(message);
+    alert(message);
+  } finally {
+    setSelectingNovelty(false);
+  }
+}
   function renderWorkflowHome() {
     return (
       <div className="space-y-10">
@@ -809,179 +962,353 @@ alert(message);
   }
 
   function renderDraftingTab() {
-  return (
-    <div className="space-y-8">
-      <div>
-        <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
-          Draft Workflow
-        </p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
-          What is in your inventive mind today?
-        </h1>
-        <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
-          Write in plain language. PatentOS will handle the legal structure,
-          specification flow, and downstream drafting support.
-        </p>
-        {currentProjectId && (
-          <p className="mt-3 text-sm text-slate-500">
-            Current project ID: {currentProjectId}
+    return (
+      <div className="space-y-8">
+        <div>
+          <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+            Draft Workflow
           </p>
-        )}
-      </div>
-
-      <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xl font-semibold text-[#122033]">
-                Describe your invention
-              </p>
-              <p className="mt-2 text-sm leading-7 text-slate-500">
-                No patent jargon needed. Just tell PatentOS what the idea does,
-                how it works, and why it matters.
-              </p>
-            </div>
-
-            <div className="flex h-12 w-12 items-center justify-center rounded-[1.25rem] bg-[linear-gradient(135deg,#0b2f6b_0%,#1457b8_65%,#ff8a00_140%)] text-lg font-semibold text-white">
-              D
-            </div>
-          </div>
-
-          <div className="mt-8">
-            <textarea
-              rows={10}
-              value={draftIdeaText}
-              onChange={(e) => setDraftIdeaText(e.target.value)}
-              placeholder="For example: I have built a system that predicts abnormal kiln conditions using temperature patterns, sensor behavior, and control history, so operators can intervene earlier and reduce energy waste..."
-              className="w-full rounded-[1.5rem] border border-[rgba(20,87,184,0.12)] px-5 py-4 text-base leading-8 text-[#122033] outline-none transition placeholder:text-slate-400 focus:border-[rgba(20,87,184,0.24)]"
-            />
-          </div>
-
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <button
-              onClick={saveDraftIdea}
-              disabled={isSavingDraftIdea}
-              className="rounded-full bg-[#1457b8] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#0b2f6b] disabled:opacity-60"
-            >
-              {isSavingDraftIdea ? "Saving..." : "Save and continue"}
-            </button>
-
-            <button className="rounded-full border border-[rgba(20,87,184,0.12)] bg-white px-6 py-3 text-sm font-semibold text-[#1457b8] transition hover:bg-[rgba(20,87,184,0.05)]">
-              Upload a document
-            </button>
-          </div>
-
-          {draftSaveMessage && (
-            <p className="mt-4 text-sm font-medium text-green-600">
-              {draftSaveMessage}
+          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-[#122033]">
+            What is in your inventive mind today?
+          </h1>
+          <p className="mt-3 max-w-3xl text-base leading-8 text-slate-600">
+            Write in plain language. PatentOS will handle the legal structure,
+            specification flow, and downstream drafting support.
+          </p>
+          {currentProjectId && (
+            <p className="mt-3 text-sm text-slate-500">
+              Current project ID: {currentProjectId}
             </p>
           )}
-          {isRefiningIdea && (
-  <div className="mt-6 rounded-[1.5rem] border border-[rgba(20,87,184,0.10)] bg-[#f9fbff] p-5">
-    <p className="text-sm font-semibold text-[#1457b8]">
-      PatentOS is refining your invention idea...
-    </p>
-  </div>
-)}
-
-{refineError && (
-  <div className="mt-6 rounded-[1.5rem] border border-[rgba(220,38,38,0.12)] bg-red-50 p-5">
-    <p className="text-sm font-semibold text-red-600">{refineError}</p>
-  </div>
-)}
-
-{showRefinedIdea && (
-  <div className="mt-6 space-y-4 rounded-[1.5rem] border border-[rgba(20,87,184,0.10)] bg-[#f9fbff] p-6">
-    <div>
-      <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
-        Refined Idea
-      </p>
-      <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-700">
-        {refinedIdea}
-      </p>
-    </div>
-
-    <div>
-      <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
-        Assumptions Made
-      </p>
-      <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-700">
-        {assumptionsMade}
-      </p>
-    </div>
-
-    <div>
-      <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
-        Missing Details
-      </p>
-      <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-700">
-        {missingDetails}
-      </p>
-    </div>
-
-    <div className="flex flex-wrap gap-3 pt-2">
-      <button
-        onClick={() => {
-          setDraftIdeaText(refinedIdea);
-          setShowRefinedIdea(false);
-          setDraftSaveMessage("Refined idea accepted. You can now proceed.");
-        }}
-        className="rounded-full bg-[#1457b8] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b2f6b]"
-      >
-        Yes, this refinement is okay
-      </button>
-
-      <button
-        onClick={() => {
-          setShowRefinedIdea(false);
-          setDraftSaveMessage("Please refine your invention description and try again.");
-        }}
-        className="rounded-full border border-[rgba(20,87,184,0.12)] bg-white px-5 py-2.5 text-sm font-semibold text-[#1457b8] transition hover:bg-[rgba(20,87,184,0.05)]"
-      >
-        No, I want to revise it
-      </button>
-    </div>
-  </div>
-)}
+          {projectStage && (
+            <p className="mt-2 text-sm text-slate-500">
+              Current stage: {projectStage}
+            </p>
+          )}
         </div>
 
-        <div className="space-y-8">
+        <div className="grid gap-8 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
-            <p className="text-xl font-semibold text-[#122033]">
-              What PatentOS will do next
-            </p>
-            <div className="mt-6 space-y-3">
-              {[
-                "Structure the invention into drafting-ready patent sections",
-                "Build the field of invention, background, and summary",
-                "Prepare a detailed description workflow with embodiments",
-                "Support claim generation in later drafting steps",
-              ].map((item) => (
-                <div
-                  key={item}
-                  className="rounded-2xl border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] px-4 py-3 text-sm leading-7 text-slate-600"
-                >
-                  {item}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xl font-semibold text-[#122033]">
+                  Describe your invention
+                </p>
+                <p className="mt-2 text-sm leading-7 text-slate-500">
+                  No patent jargon needed. Just tell PatentOS what the idea does,
+                  how it works, and why it matters.
+                </p>
+              </div>
+
+              <div className="flex h-12 w-12 items-center justify-center rounded-[1.25rem] bg-[linear-gradient(135deg,#0b2f6b_0%,#1457b8_65%,#ff8a00_140%)] text-lg font-semibold text-white">
+                D
+              </div>
+            </div>
+
+            <div className="mt-8">
+              <textarea
+                rows={10}
+                value={draftIdeaText}
+                onChange={(e) => setDraftIdeaText(e.target.value)}
+                placeholder="For example: I have built a system that predicts abnormal kiln conditions using temperature patterns, sensor behavior, and control history, so operators can intervene earlier and reduce energy waste..."
+                className="w-full rounded-[1.5rem] border border-[rgba(20,87,184,0.12)] px-5 py-4 text-base leading-8 text-[#122033] outline-none transition placeholder:text-slate-400 focus:border-[rgba(20,87,184,0.24)]"
+              />
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <button
+                onClick={saveDraftIdea}
+                disabled={isSavingDraftIdea || isRefiningIdea}
+                className="rounded-full bg-[#1457b8] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#0b2f6b] disabled:opacity-60"
+              >
+                {isSavingDraftIdea || isRefiningIdea
+                  ? "Saving..."
+                  : "Save and continue"}
+              </button>
+
+              <button className="rounded-full border border-[rgba(20,87,184,0.12)] bg-white px-6 py-3 text-sm font-semibold text-[#1457b8] transition hover:bg-[rgba(20,87,184,0.05)]">
+                Upload a document
+              </button>
+            </div>
+
+            {draftSaveMessage && (
+              <p className="mt-4 text-sm font-medium text-green-600">
+                {draftSaveMessage}
+              </p>
+            )}
+
+            {isRefiningIdea && (
+              <div className="mt-6 rounded-[1.5rem] border border-[rgba(20,87,184,0.10)] bg-[#f9fbff] p-5">
+                <p className="text-sm font-semibold text-[#1457b8]">
+                  PatentOS is refining your invention idea...
+                </p>
+              </div>
+            )}
+
+            {refineError && (
+              <div className="mt-6 rounded-[1.5rem] border border-[rgba(220,38,38,0.12)] bg-red-50 p-5">
+                <p className="text-sm font-semibold text-red-600">
+                  {refineError}
+                </p>
+              </div>
+            )}
+
+            {showRefinedIdea && (
+              <div className="mt-6 space-y-4 rounded-[1.5rem] border border-[rgba(20,87,184,0.10)] bg-[#f9fbff] p-6">
+                <div>
+                  <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+                    Refined Idea
+                  </p>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-700">
+                    {refinedIdea}
+                  </p>
                 </div>
-              ))}
+
+                <div>
+                  <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+                    Assumptions Made
+                  </p>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-700">
+                    {assumptionsMade}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+                    Missing Details
+                  </p>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-700">
+                    {missingDetails}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <button
+                    onClick={acceptRefinedIdea}
+                    disabled={isAcceptingRefinedIdea}
+                    className="rounded-full bg-[#1457b8] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b2f6b] disabled:opacity-60"
+                  >
+                    {isAcceptingRefinedIdea
+                      ? "Accepting..."
+                      : "Yes, this refinement is okay"}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowRefinedIdea(false);
+                      setDraftSaveMessage(
+                        "Please refine your invention description and try again."
+                      );
+                    }}
+                    className="rounded-full border border-[rgba(20,87,184,0.12)] bg-white px-5 py-2.5 text-sm font-semibold text-[#1457b8] transition hover:bg-[rgba(20,87,184,0.05)]"
+                  >
+                    No, I want to revise it
+                  </button>
+                </div>
+              </div>
+            )}
+            {projectStage === "prior_art_search_pending" && (
+  <div className="mt-6 rounded-[1.5rem] border border-[rgba(20,87,184,0.10)] bg-white p-6 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+    <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+      Prior Art Stage
+    </p>
+    <p className="mt-3 text-lg font-semibold text-[#122033]">
+      Generate prior-art search inputs
+    </p>
+    <p className="mt-2 text-sm leading-7 text-slate-600">
+      PatentOS will now prepare structured keywords, CPC suggestions, and a search strategy based on your accepted refined idea.
+    </p>
+
+    <div className="mt-5">
+      <button
+        onClick={async () => {
+          if (!currentProjectId) {
+            alert("No active project found.");
+            return;
+          }
+
+          try {
+           setIsGeneratingNoveltyAnalysis(true);
+setRefineError("");
+setDraftSaveMessage("");
+setNoveltyAnalysisOutput("");
+setNoveltyOption1("");
+setNoveltyStrength1("");
+setNoveltyOption2("");
+setNoveltyStrength2("");
+setNoveltyOption3("");
+setNoveltyStrength3("");
+
+            const response = await fetch("/api/draft/prior-art", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    projectId: currentProjectId,
+  }),
+});
+
+const rawText = await response.text();
+const result = rawText ? JSON.parse(rawText) : {};
+
+if (!response.ok) {
+  throw new Error(
+    result?.error || "Could not generate prior art inputs."
+  );
+}
+
+            setPriorArtOutput(result.output || "");
+            setProjectStage("prior_art_search_ready");
+            setDraftSaveMessage(
+              "Prior-art search inputs generated successfully."
+            );
+          } catch (err) {
+            const message =
+              err instanceof Error
+                ? err.message
+                : "Could not generate prior art inputs.";
+            setRefineError(message);
+            alert(message);
+          } finally {
+            setIsGeneratingPriorArt(false);
+          }
+        }}
+        disabled={isGeneratingPriorArt}
+        className="rounded-full bg-[#1457b8] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b2f6b] disabled:opacity-60"
+      >
+        {isGeneratingPriorArt
+          ? "Generating..."
+          : "Generate Prior Art Inputs"}
+      </button>
+    </div>
+  </div>
+)}
+
+{projectStage === "prior_art_search_ready" && priorArtOutput && (
+  <div className="mt-6 rounded-[1.5rem] border border-[rgba(20,87,184,0.10)] bg-white p-6 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+    <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+      Prior Art Search Inputs
+    </p>
+    <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700">
+      {priorArtOutput}
+    </p>
+    <div className="mt-5">
+      <button
+        onClick={generateNoveltyAnalysis}
+        disabled={isGeneratingNoveltyAnalysis}
+        className="rounded-full bg-[#ff8a00] px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+      >
+        {isGeneratingNoveltyAnalysis
+          ? "Generating novelty analysis..."
+          : "Continue to Novelty Analysis"}
+      </button>
+    </div>
+  </div>
+)}
+
+{projectStage === "novelty_selection" && noveltyAnalysisOutput && (
+  <div className="mt-6 rounded-[1.5rem] border border-[rgba(20,87,184,0.10)] bg-white p-6 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+    <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+      Novelty Analysis
+    </p>
+
+    <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-700">
+      {noveltyAnalysisOutput}
+    </p>
+
+    {selectionError && (
+      <div className="mt-5 rounded-[1rem] border border-[rgba(220,38,38,0.12)] bg-red-50 p-4">
+        <p className="text-sm font-semibold text-red-600">
+          {selectionError}
+        </p>
+      </div>
+    )}
+
+    <div className="mt-6 grid gap-4">
+      {[
+        {
+          novelty: noveltyOption1,
+          strength: noveltyStrength1,
+        },
+        {
+          novelty: noveltyOption2,
+          strength: noveltyStrength2,
+        },
+        {
+          novelty: noveltyOption3,
+          strength: noveltyStrength3,
+        },
+      ]
+        .filter((item) => item.novelty.trim())
+        .map((item, index) => (
+          <div
+            key={index}
+            className="rounded-[1rem] border border-[rgba(20,87,184,0.10)] bg-[#f9fbff] p-5"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-[#122033]">
+                {item.novelty}
+              </p>
+              <span className="rounded-full bg-[rgba(255,138,0,0.12)] px-3 py-1 text-xs font-semibold text-[#ff8a00]">
+                {item.strength}
+              </span>
+            </div>
+
+            <div className="mt-4">
+              <button
+                onClick={() => handleSelectNovelty(item.novelty, item.strength)}
+                disabled={selectingNovelty}
+                className="rounded-full bg-[#1457b8] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0b2f6b] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {selectingNovelty ? "Selecting..." : "Select this"}
+              </button>
             </div>
           </div>
+        ))}
+    </div>
+  </div>
+)}
 
-          <div className="rounded-[2rem] border border-[rgba(255,138,0,0.16)] bg-[linear-gradient(135deg,#fff6ec_0%,#ffffff_100%)] p-8 shadow-[0_10px_40px_rgba(255,138,0,0.08)]">
-            <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
-              Drafting principle
-            </p>
-            <p className="mt-3 text-base leading-8 text-slate-600">
-              PatentOS keeps the entry experience simple for inventors and
-              founders, then expands the material into structured patent content
-              behind the scenes.
-            </p>
+</div>
+
+          <div className="space-y-8">
+            <div className="rounded-[2rem] border border-[rgba(20,87,184,0.10)] bg-white p-8 shadow-[0_10px_40px_rgba(20,87,184,0.05)]">
+              <p className="text-xl font-semibold text-[#122033]">
+                What PatentOS will do next
+              </p>
+              <div className="mt-6 space-y-3">
+                {[
+                  "Structure the invention into drafting-ready patent sections",
+                  "Build the field of invention, background, and summary",
+                  "Prepare a detailed description workflow with embodiments",
+                  "Support claim generation in later drafting steps",
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-2xl border border-[rgba(20,87,184,0.08)] bg-[#f9fbff] px-4 py-3 text-sm leading-7 text-slate-600"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-[rgba(255,138,0,0.16)] bg-[linear-gradient(135deg,#fff6ec_0%,#ffffff_100%)] p-8 shadow-[0_10px_40px_rgba(255,138,0,0.08)]">
+              <p className="text-sm font-semibold tracking-[0.12em] text-[#ff8a00]">
+                Drafting principle
+              </p>
+              <p className="mt-3 text-base leading-8 text-slate-600">
+                PatentOS keeps the entry experience simple for inventors and
+                founders, then expands the material into structured patent content
+                behind the scenes.
+              </p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   function renderProsecutionTab() {
     return (
